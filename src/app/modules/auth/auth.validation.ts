@@ -28,9 +28,9 @@ const registerUser = z.object({
         required_error: "Password is required!",
       })
       .min(8, "Password should be at least 8 characters"),
-    role: z.enum([Role.BUYER, Role.SELLER], {
+    role: z.enum([Role.ADMIN, Role.ADMIN], {
       errorMap: () => {
-        return { message: `Role should be either ${Role.SELLER} or ${Role.BUYER}` };
+        return { message: `Role should be either ${Role.ADMIN} or ${Role.USER}` };
       },
     }),
 

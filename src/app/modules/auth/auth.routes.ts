@@ -7,8 +7,7 @@ import auth, { checkOTP } from '../../middlewares/auth';
 const router = express.Router();
 
 router.post(
-  '/create-account', validateRequest(authValidation.registerUser),
-  AuthControllers.createAccount
+  '/create-account', AuthControllers.createAccount
 );
 
 router.post(

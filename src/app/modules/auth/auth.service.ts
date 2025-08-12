@@ -92,12 +92,7 @@ const createAccount1 = async (payload: IRegisterUser) => {
 }
 
 const createAccount = async (payload: {
-  name: string;
   email: string;
-  password: string;
-  phone: string;
-  role: string;
-  fcmToken?: string;
 }) => {
   const existingUser = await prisma.user.findUnique({
     where: {
@@ -112,18 +107,10 @@ const createAccount = async (payload: {
     );
   }
 
-  const hashedPassword: string = await bcrypt.hash(payload.password, 12);
+  // const hashedPassword: string = await bcrypt.hash(payload.password, 12);
 
   const userData = {
-    name: payload.name,
     email: payload.email.trim(),
-    password: hashedPassword,
-    phoneNumber: payload.phone,
-    role: payload.role || Role.BUYER,
-    status: payload.role === Role.BUYER ? UserStatus.ACTIVE : UserStatus.PENDING,
-    isEmailVerified: false,
-    isVerified: false,
-    fcmToken: payload.fcmToken || undefined,
   };
   const result = await prisma.$transaction(async (transactionClient: any) => {
     // Create a Stripe customer
@@ -209,7 +196,7 @@ const verifyEmail = async (userId: string, { otpCode, fcmToken, type }: { otpCod
       config.jwt.reset_pass_secret as Secret,
       config.jwt.reset_pass_token_expires_in as string
     );;
-    if (user.role === Role.BUYER) {
+    if (user.role === Role.USER) {
 
       return {
         statusCode: type === 'register' ? httpStatus.OK : httpStatus.PERMANENT_REDIRECT,
@@ -223,7 +210,7 @@ const verifyEmail = async (userId: string, { otpCode, fcmToken, type }: { otpCod
         isVerified: true,
         accessToken: type === 'register' ? null : accessToken, // If it's a registration, no access token is needed
       }
-    } else if (user.role === Role.SELLER) {  
+    } else if (user.role === Role.USER) {  
       const accessTokenFor = jwtHelpers.generateToken(
         {
           id: user.id,
@@ -389,7 +376,7 @@ const loginUserFromDB = async (payload: IUserLogin) => {
     config.jwt.access_expires_in as string
   );
 
-  if (userData.role === Role.SELLER && userData.storeAddress.length === 0) {
+  if (userData.role === Role.USER && userData.storeAddress.length === 0) {
     const accessTokenFor = jwtHelpers.generateToken(
       {
         id: userData.id,
@@ -428,8 +415,7 @@ const adminLoginUserFromDB = async (payload: IUserLogin) => {
     where: {
       email: payload.email,
       OR: [
-        { role: Role.ADMIN },
-        { role: Role.SUPERADMIN }
+        { role: Role.ADMIN }
       ]
     },
   });

@@ -26,14 +26,14 @@
     "@types/nodemailer": "^6.4.16",
     "@types/ws": "^8.5.13",
     "morgan": "^1.10.0",
-    "prisma": "^5.22.0",
+    "prisma": "^6.13.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.6.3"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^6.13.0",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
