@@ -1,0 +1,20 @@
+version: "3"
+services:
+  api-server:
+    image: api-server
+    restart: unless-stopped
+    env_file: ./api/.env
+    ports:
+      - "8701:8701"
+    networks:
+      - mern-app
+networks:
+  mern-app:
+    driver: bridge
+volumes:
+  mongo-data:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local
