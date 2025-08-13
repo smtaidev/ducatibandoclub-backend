@@ -124,7 +124,7 @@ const setPassword = async (userId: string, password: string) => {
 };
 
 const changePassword = async (userId: string, payload: { password: string }) => {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId } });  
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, "User not found");
   }
