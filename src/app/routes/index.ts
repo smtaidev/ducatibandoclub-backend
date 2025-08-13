@@ -16,6 +16,7 @@ import { NewsRoutes } from "../modules/news/News.routes";
 import path from "path";
 import { SectorRoutes } from "../modules/sectors/Sector.routes";
 import { StockRoutes } from "../modules/stock/Stock.routes";
+import { StrategyRoutes } from "../modules/strategy/strategy.router";
 
 const router = express.Router();
 
@@ -53,19 +54,25 @@ const moduleRoutes = [
     path: '/stocks',
     route: StockRoutes
   },
+  
+  {
+    path: '/strategy',
+    route: StrategyRoutes
+  },
+  
 
   // {
   //   path: "/payments",
   //   route: PaymentRouters
   // },
-  {
-    path: "/notifications",
-    route: NotificationsRouters
-  },
-  {
-    path: "/reviews",
-    route: ReviewRouters
-  },
+  // {
+  //   path: "/notifications",
+  //   route: NotificationsRouters
+  // },
+  // {
+  //   path: "/reviews",
+  //   route: ReviewRouters
+  // },
 
 ];
 
