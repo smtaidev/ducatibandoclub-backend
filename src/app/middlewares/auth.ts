@@ -16,6 +16,7 @@ const auth = (...roles: string[]) => {
   ) => {
     try {
       const headersAuth = req.headers.authorization;
+      console.log(headersAuth);
         if (!headersAuth || !headersAuth.startsWith("Bearer ")) {
       throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid authorization format!");
     }

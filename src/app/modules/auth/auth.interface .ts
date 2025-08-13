@@ -29,8 +29,7 @@ export interface IUserLogin {
 }
 
 export interface IChangePassword{
-  newPassword: string;
-  oldPassword: string;
+  password: string;
 }
 
 export interface IPartnerRegistration {

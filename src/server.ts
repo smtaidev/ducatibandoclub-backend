@@ -24,7 +24,7 @@ async function main() {
 
 
   // Track Stocked market time
-  trackStockMarketTime();
+  // trackStockMarketTime();
 
   // Get All Stock Market Data When server was running
   // getAllStockMarketData()
@@ -213,6 +213,6 @@ async function main() {
 // scheduleAllStockMarketData();
 
 // Schedule Stock Market Tracking Time
-scheduleStockMarketTrackingTime();
+// scheduleStockMarketTrackingTime();
 
 main();

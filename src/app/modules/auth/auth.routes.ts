@@ -7,54 +7,35 @@ import auth, { checkOTP } from '../../middlewares/auth';
 const router = express.Router();
 
 router.post(
-  '/create-account', AuthControllers.createAccount
+  '/login',
+  validateRequest(authValidation.signUpOrLogin),
+  AuthControllers.signUpOrLogin
 );
 
 router.post(
-  "/email-verify",
+  "/verify-email",
   validateRequest(authValidation.verifyOtp),
   AuthControllers.verifiedEmail
 );
 
 router.post(
   "/resend-otp",
+  validateRequest(authValidation.resendOtp),
   AuthControllers.resendOtp
 );
 
 router.post(
-  "/login",
-  validateRequest(authValidation.loginUser),
-  AuthControllers.loginUser
-);
-router.post(
-  "/admin/login",
-  validateRequest(authValidation.loginUser),
-  AuthControllers.adminLoginUser
-);
-
-router.post(
-  "/forgot-password",
-  validateRequest(authValidation.forgotPassword),
-  AuthControllers.forgotPassword
-);
-
-// router.post(
-//   "/verify-reset-password-otp",
-//   validateRequest(authValidation.verifyOtp),
-//   AuthControllers.verifyOtp
-// );
-router.post(
-  "/reset-password",
-  validateRequest(authValidation.resetPassword),
+  "/set-password",
+  validateRequest(authValidation.setPassword),
   checkOTP,
-  AuthControllers.resetPassword
+  AuthControllers.setPassword
 );
+
 router.post(
   "/change-password",
   validateRequest(authValidation.changePassword),
   auth(),
   AuthControllers.changePassword
 );
-
 
 export const AuthRouters = router;

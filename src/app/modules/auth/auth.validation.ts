@@ -1,3 +1,47 @@
+import { z } from 'zod';
+
+export const authValidation = {
+  signUpOrLogin: z.object({
+    body: z.object({
+      email: z.string().email("Invalid email address"),
+      password: z.string().optional(),
+    }),
+  }),
+
+  verifyOtp: z.object({
+    body: z.object({
+      userId: z.string().min(1, "User ID is required"),
+      otpCode: z.string().min(1, "OTP code is required"),
+    }),
+  }),
+
+  resendOtp: z.object({
+    body: z.object({
+      userId: z.string().min(1, "User ID is required"),
+    }),
+  }),
+
+  setPassword: z.object({
+    body: z.object({
+      password: z.string().min(6, "Password must be at least 6 characters"),
+    }),
+  }),
+
+  changePassword: z.object({
+    body: z.object({
+      password: z.string().min(6, "Password must be at least 6 characters"),
+    }),
+  }),
+};
+
+
+
+
+
+
+
+
+/*
 import { Role } from "@prisma/client";
 import z from "zod";
 
@@ -91,12 +135,9 @@ const resetPassword = z.object({
 });
 const changePassword = z.object({
   body: z.object({
-    oldPassword: z.string({
-      required_error: "old Password is required!",
-    }),
-    newPassword: z.string({
-      required_error: "new password is required!",
-    }).min(8, "Password should be minimum 8 characters "),
+    password: z.string({
+      required_error: "Password is required!",
+    }).min(8, "password should be minimum 8 characters "),
   }),
 });
 
@@ -114,3 +155,5 @@ export const authValidation = {
 
 
 };
+
+*/
