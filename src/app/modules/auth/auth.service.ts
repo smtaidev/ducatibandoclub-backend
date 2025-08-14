@@ -87,7 +87,7 @@ const verifyEmail = async (userId: string, { otpCode }: { otpCode: string }) => 
     await prisma.oTP.deleteMany({ where: { userId } });
 
     const accessToken = jwtHelpers.generateToken(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role },
       config.jwt.access_secret as Secret,
       config.jwt.access_expires_in as string
     );

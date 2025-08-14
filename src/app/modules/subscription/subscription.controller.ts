@@ -5,7 +5,9 @@ import sendResponse from '../../helpers/sendResponse';
 import { SubscriptionService } from './subscription.service';
 
 const createCheckoutSession = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
+  console.log('User ID:', userId);
+  console.log('Creating subscription for user:', req.user)
   const result = await SubscriptionService.createCheckoutSession(userId, req.body);
 
   sendResponse(res, {
@@ -17,7 +19,7 @@ const createCheckoutSession = catchAsync(async (req: Request, res: Response) => 
 });
 
 const createSubscription = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   const result = await SubscriptionService.createSubscription(userId, req.body);
 
   sendResponse(res, {
@@ -29,7 +31,7 @@ const createSubscription = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getSubscription = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   const result = await SubscriptionService.getSubscription(userId);
 
   sendResponse(res, {
@@ -41,7 +43,7 @@ const getSubscription = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateSubscription = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   const result = await SubscriptionService.updateSubscription(userId, req.body);
 
   sendResponse(res, {
@@ -53,7 +55,7 @@ const updateSubscription = catchAsync(async (req: Request, res: Response) => {
 });
 
 const cancelSubscription = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   await SubscriptionService.cancelSubscription(userId);
 
   sendResponse(res, {
@@ -65,7 +67,7 @@ const cancelSubscription = catchAsync(async (req: Request, res: Response) => {
 });
 
 const scheduleSubscriptionCancellation = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   const result = await SubscriptionService.updateSubscription(userId, {
     cancelAtPeriodEnd: true,
   });
@@ -79,7 +81,7 @@ const scheduleSubscriptionCancellation = catchAsync(async (req: Request, res: Re
 });
 
 const resumeSubscription = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   const result = await SubscriptionService.updateSubscription(userId, {
     cancelAtPeriodEnd: false,
   });
