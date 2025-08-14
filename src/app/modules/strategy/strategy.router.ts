@@ -13,4 +13,18 @@ router.post(
   StrategyControllers.createStrategy
 );
 
+// Get user's current strategy
+router.get(
+  '/',
+  auth(),
+  StrategyControllers.getUserStrategy
+);
+
+// Get AI-powered stock suggestions based on user's strategy
+router.get(
+  '/ai-suggestions',
+  auth(),
+  StrategyControllers.getAIStockSuggestions
+);
+
 export const StrategyRoutes = router;

@@ -35,6 +35,6 @@ export default {
     secretKey: process.env.STRIPE_SECRET_KEY,
     publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-    priceId: process.env.STRIPE_PRICE_ID || "price_1234567890", // Default price ID for $20/month
+    priceId: process.env.STRIPE_PRICE_ID, 
   }
 }

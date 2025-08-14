@@ -21,6 +21,32 @@ const createStrategy = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getUserStrategy = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  
+  const result = await StrategyServices.getUserStrategy(userId);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'User strategy retrieved successfully',
+    data: result,
+  });
+});
+
+const getAIStockSuggestions = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  
+  const result = await StrategyServices.getAIStockSuggestions(userId);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'AI stock suggestions generated successfully',
+    data: result,
+  });
+});
+
 export const StrategyControllers = {
   createStrategy,
+  getUserStrategy,
+  getAIStockSuggestions,
 };
