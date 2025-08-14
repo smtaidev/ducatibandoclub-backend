@@ -13,9 +13,9 @@ const router = express.Router();
 
 router.put('/update-profile', auth(), UsersController.updateMyProfile);
 
-router.get('/all', auth(Role.ADMIN, Role.SUPERADMIN), UsersController.getAllUsers);
+router.get('/all', auth(Role.ADMIN), UsersController.getAllUsers);
 
-router.put('/status/:userId', auth(Role.ADMIN, Role.SUPERADMIN), UsersController.updateUserStatus);
+router.put('/status/:userId', auth(Role.ADMIN), UsersController.updateUserStatus);
 
 router.get('/me', auth(), UsersController.getMyProfile);
 router.post('/me/uploads-profile-photo', auth(), fileUploader.profileImage, UsersController.updateMyProfileImage);

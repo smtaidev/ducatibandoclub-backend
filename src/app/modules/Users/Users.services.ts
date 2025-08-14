@@ -21,57 +21,37 @@ const getMyProfile = async (userId: string) => {
       name: true,
       image: true,
       role: true,
-
-      storeAddress: {
-        select: {
-          id: true,
-          address: true,
-        }
-      }
+      email: true,
+      isProMember: true,
+      status: true
     }
   });
   if (!user) throw new ApiError(httpStatus.NOT_FOUND, 'user not found')
-  if (user.role === Role.BUYER) {
-    return {
-      id: user.id,
-      name: user.name,
-      image: user.image,
-      location: null
-
-    }
-  } else if (user.role === Role.SELLER) {
-    const store = await prisma.storeAddress.findFirst({
-      where: {
-        userId: user.id
-
-      },
-      select: {
-        id: true,
-        address: true,
-      }
-    })
-    // if (!store) throw new ApiError(httpStatus.NOT_FOUND, "please update your store")
-    return {
-      id: user.id,
-      name: user.name,
-      image: user.image,
-      location: store?.address
-    }
-  }
+  
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image,
+    role: user.role,
+    isProMember: user.isProMember,
+    status: user.status
+  };
 };
 
 const getSellerProfileById = async (userId: string) => {
   const user = await prisma.user.findUnique({
     where: {
       id: userId,
-      role: Role.SELLER,
       isDeleted: false
     },
     select: {
       id: true,
       name: true,
       image: true,
-
+      role: true,
+      email: true,
+      isProMember: true
     }
   });
 
@@ -87,9 +67,7 @@ const getAllUsers = async (options: IPaginationOptions) => {
 
   const users = await prisma.user.findMany({
     where: {
-      NOT: {
-        role: Role.SUPERADMIN
-      }
+      isDeleted: false
     },
     skip,
     take: limit,
@@ -97,9 +75,9 @@ const getAllUsers = async (options: IPaginationOptions) => {
       id: true,
       email: true,
       name: true,
-      phoneNumber: true,
       role: true,
       status: true,
+      isProMember: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -109,9 +87,7 @@ const getAllUsers = async (options: IPaginationOptions) => {
   });
   const total = await prisma.user.count({
     where: {
-      NOT: {
-        role: Role.SUPERADMIN
-      }
+      isDeleted: false
     },
   });
   const totalPages = Math.ceil(total / limit); // Calculate total pages
@@ -149,12 +125,7 @@ const updateMyProfile = async (userId: string, payload: any) => {
       name: true,
       image: true,
       role: true,
-      storeAddress: {
-        select: {
-          id: true,
-          address: true,
-        }
-      }
+      isProMember: true
     }
   })
 
@@ -249,9 +220,9 @@ const updateUserStatus = async (userId: string, payload: { status: any }) => {
       id: true,
       email: true,
       name: true,
-      phoneNumber: true,
       role: true,
       status: true,
+      isProMember: true,
       createdAt: true,
       updatedAt: true,
     }

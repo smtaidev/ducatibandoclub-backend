@@ -3,6 +3,7 @@ import app from "./app";
 import config from "./config";
 import { getAllStockMarketData, scheduleAllStockMarketData, scheduleStockMarketTrackingTime } from "./app/utils/scheduleAllData";
 import trackStockMarketTime from "./app/trackStockMarketTime";
+import { initializeSubscriptionCronJobs } from "./app/utils/subscriptionCronJobs";
 
 const port = config.port || 8601;
 
@@ -13,6 +14,9 @@ async function main() {
 
   // Track Stock market time
   // trackStockMarketTime();
+
+  // Initialize subscription cron jobs
+  initializeSubscriptionCronJobs();
 
   // Get All Stock Market Data When server was running
   // getAllStockMarketData();

@@ -6,6 +6,7 @@ import { NewsRoutes } from "../modules/news/News.routes";
 import { SectorRoutes } from "../modules/sectors/Sector.routes";
 import { StockRoutes } from "../modules/stock/Stock.routes";
 import { StrategyRoutes } from "../modules/strategy/strategy.router";
+import { SubscriptionRoutes } from "../modules/subscription/subscription.routes";
 
 const router = express.Router();
 
@@ -33,6 +34,10 @@ const moduleRoutes = [
   {
     path: '/strategy',
     route: StrategyRoutes
+  },
+  {
+    path: '/subscription',
+    route: SubscriptionRoutes
   },
 ];
 

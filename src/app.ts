@@ -20,7 +20,8 @@ app.use(
   })
 );
 
-//parser
+//parser - Apply raw body parser for webhooks first
+app.use('/api/v1/subscription/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "..", "public", "uploads")));
