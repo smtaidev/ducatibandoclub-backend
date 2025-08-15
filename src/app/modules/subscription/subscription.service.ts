@@ -1,4 +1,4 @@
-import { Subscription, SubscriptionStatus, User } from '@prisma/client';
+import { Subscription, SubscriptionStatus, SubscriptionPlanType, User } from '@prisma/client';
 import Stripe from 'stripe';
 import config from '../../../config';
 import ApiError from '../../errors/ApiError';
@@ -353,18 +353,26 @@ const handleWebhook = async (
 ): Promise<void> => {
   let event: Stripe.Event;
 
+  // console.log(`Received event: >>>>>>>>>>>>>>>>>>>>>>>>`);
+  console.log(`Received event: ${JSON.stringify(payload)}`);
+  console.log(`Signature: ${signature}`);   
+
   try {
     event = stripe.webhooks.constructEvent(
       payload,
       signature,
       config.stripe.webhookSecret!
     );
+    console.log(event, "event:-")
+    console.log(`Received event: >>>>>>>>>>>>>>>>>>>>>>>> hello: ${event.type}`);
   } catch (error: any) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       `Webhook signature verification failed: ${error.message}`
     );
   }
+
+  
 
   switch (event.type) {
     case 'checkout.session.completed':
@@ -396,49 +404,114 @@ const handleWebhook = async (
   }
 };
 
-// Helper functions for webhook handlers
-const handleCheckoutSessionCompleted = async (
-  session: Stripe.Checkout.Session
-): Promise<void> => {
-  const userId = session.metadata?.userId;
-  if (!userId) return;
 
-  const subscription = await stripe.subscriptions.retrieve(
-    session.subscription as string
-  );
+const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session) => {
+  try {
+    const userId = session.metadata?.userId;
+    if (!userId) {
+      console.error('No userId found in session metadata');
+      return;
+    }
 
-  // Create or update subscription in database
-  await prisma.subscription.upsert({
-    where: {
-      stripeSubscriptionId: subscription.id,
-    },
-    create: {
-      userId,
-      stripeCustomerId: session.customer as string,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId: subscription.items.data[0].price.id,
-      status: subscription.status as SubscriptionStatus,
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      startDate: new Date(subscription.start_date! * 1000),
-      endDate: new Date(subscription.current_period_end * 1000),
-    },
-    update: {
-      status: subscription.status as SubscriptionStatus,
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-    },
-  });
+    // Check if session.subscription exists and is a string
+    if (!session.subscription || typeof session.subscription !== 'string') {
+      console.error('No valid subscription ID found in checkout session');
+      return;
+    }
 
-  // Update user pro status
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      isProMember: true,
-      membershipEnds: new Date(subscription.current_period_end * 1000),
-    },
-  });
+    // Retrieve subscription details from Stripe
+    const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
+
+    // Validate that we have subscription items
+    if (!stripeSubscription.items?.data?.length) {
+      console.error('No subscription items found in Stripe subscription');
+      return;
+    }
+
+    const subscriptionItem = stripeSubscription.items.data[0];
+    const price = subscriptionItem.price;
+
+    // Map price nickname to SubscriptionPlanType enum
+    const getPlanType = (nickname: string | null): SubscriptionPlanType => {
+      if (!nickname) return SubscriptionPlanType.MONTHLY; // Default fallback
+      
+      const lowerNickname = nickname.toLowerCase();
+      if (lowerNickname.includes('yearly') || lowerNickname.includes('annual')) {
+        return SubscriptionPlanType.YEARLY;
+      } else if (lowerNickname.includes('trial')) {
+        return SubscriptionPlanType.FREE_TRIAL;
+      }
+      return SubscriptionPlanType.MONTHLY; // Default
+    };
+
+    // Calculate amount safely
+    const amount = price.unit_amount ? price.unit_amount / 100 : 20.00; // Default to $20 if null
+
+    // Map Stripe status to our enum
+    const mapStripeStatus = (status: string): SubscriptionStatus => {
+      switch (status) {
+        case 'active':
+          return SubscriptionStatus.ACTIVE;
+        case 'canceled':
+        case 'cancelled':
+          return SubscriptionStatus.CANCELLED;
+        case 'incomplete':
+        case 'incomplete_expired':
+        case 'past_due':
+        case 'unpaid':
+        default:
+          return SubscriptionStatus.INACTIVE;
+      }
+    };
+
+    // Create the subscription in your DB
+    await prisma.subscription.create({
+      data: {
+        userId: userId,
+        stripeCustomerId: session.customer as string,
+        stripeSubscriptionId: stripeSubscription.id,
+        stripePriceId: price.id,
+        status: mapStripeStatus(stripeSubscription.status),
+        currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+        plan: getPlanType(price.nickname),
+        amount: amount,
+        currency: price.currency || 'usd',
+        startDate: new Date(stripeSubscription.created * 1000),
+        endDate: new Date(stripeSubscription.current_period_end * 1000),
+      },
+    });
+
+    // Update the user's pro status
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isProMember: true,
+        membershipEnds: new Date(stripeSubscription.current_period_end * 1000),
+      },
+    });
+
+    console.log(`Successfully processed checkout session for user ${userId}, subscription ${stripeSubscription.id}`);
+    
+  } catch (error: any) {
+    console.error('Error in handleCheckoutSessionCompleted:', {
+      error: error.message,
+      stack: error.stack,
+      sessionId: session.id,
+      userId: session.metadata?.userId,
+    });
+    
+  }
 };
+
+
+
+
+
+
+
+
+
 
 const handleSubscriptionCreated = async (
   subscription: Stripe.Subscription
