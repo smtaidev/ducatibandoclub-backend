@@ -291,7 +291,7 @@ export const getAllStockMarketData = async () => {
 };
 
 export const scheduleStockMarketTrackingTime = () => {
-  cron.schedule('*/2 * * * *', async () => {
+  cron.schedule('* * * * *', async () => {
     try {
       trackStockMarketTime();
     } catch (error) {
