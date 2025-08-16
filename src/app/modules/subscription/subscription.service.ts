@@ -35,16 +35,13 @@ const createCheckoutSession = async (
   });
 
   if (existingSubscription) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      'User already has an active subscription'
-    );
+    throw new ApiError(httpStatus.BAD_REQUEST, 'User already has an active subscription');
   }
 
   try {
     // Create or get Stripe customer
     let stripeCustomerId: string;
-    
+
     const existingCustomer = await stripe.customers.list({
       email: user.email,
       limit: 1,
@@ -91,10 +88,7 @@ const createCheckoutSession = async (
       url: session.url!,
     };
   } catch (error: any) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      `Failed to create checkout session: ${error.message}`
-    );
+    throw new ApiError(httpStatus.BAD_REQUEST, `Failed to create checkout session: ${error.message}`);
   }
 };
 
@@ -120,16 +114,13 @@ const createSubscription = async (
   });
 
   if (existingSubscription) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      'User already has an active subscription'
-    );
+    throw new ApiError(httpStatus.BAD_REQUEST, 'User already has an active subscription');
   }
 
   try {
     // Create or get Stripe customer
     let stripeCustomerId: string;
-    
+
     const existingCustomer = await stripe.customers.list({
       email: user.email,
       limit: 1,
@@ -210,15 +201,13 @@ const createSubscription = async (
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
       clientSecret: subscription.latest_invoice
         ? (subscription.latest_invoice as Stripe.Invoice).payment_intent
-          ? ((subscription.latest_invoice as Stripe.Invoice).payment_intent as Stripe.PaymentIntent).client_secret || undefined
+          ? ((subscription.latest_invoice as Stripe.Invoice).payment_intent as Stripe.PaymentIntent).client_secret ||
+            undefined
           : undefined
         : undefined,
     };
   } catch (error: any) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      `Failed to create subscription: ${error.message}`
-    );
+    throw new ApiError(httpStatus.BAD_REQUEST, `Failed to create subscription: ${error.message}`);
   }
 };
 
@@ -233,10 +222,7 @@ const getSubscription = async (userId: string): Promise<Subscription | null> => 
 };
 
 // Update subscription
-const updateSubscription = async (
-  userId: string,
-  data: IUpdateSubscription
-): Promise<ISubscriptionResponse> => {
+const updateSubscription = async (userId: string, data: IUpdateSubscription): Promise<ISubscriptionResponse> => {
   const subscription = await prisma.subscription.findFirst({
     where: { userId, status: SubscriptionStatus.ACTIVE },
   });
@@ -250,12 +236,9 @@ const updateSubscription = async (
 
     if (data.cancelAtPeriodEnd !== undefined) {
       // Update cancellation status
-      updatedSubscription = await stripe.subscriptions.update(
-        subscription.stripeSubscriptionId,
-        {
-          cancel_at_period_end: data.cancelAtPeriodEnd,
-        }
-      );
+      updatedSubscription = await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+        cancel_at_period_end: data.cancelAtPeriodEnd,
+      });
 
       // Update database
       await prisma.subscription.update({
@@ -267,17 +250,14 @@ const updateSubscription = async (
       });
     } else if (data.newPriceId) {
       // Update subscription price
-      updatedSubscription = await stripe.subscriptions.update(
-        subscription.stripeSubscriptionId,
-        {
-          items: [
-            {
-              id: (await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId)).items.data[0].id,
-              price: data.newPriceId,
-            },
-          ],
-        }
-      );
+      updatedSubscription = await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+        items: [
+          {
+            id: (await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId)).items.data[0].id,
+            price: data.newPriceId,
+          },
+        ],
+      });
 
       // Update database
       await prisma.subscription.update({
@@ -287,9 +267,7 @@ const updateSubscription = async (
         },
       });
     } else {
-      updatedSubscription = await stripe.subscriptions.retrieve(
-        subscription.stripeSubscriptionId
-      );
+      updatedSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
     }
 
     return {
@@ -300,10 +278,7 @@ const updateSubscription = async (
       cancelAtPeriodEnd: updatedSubscription.cancel_at_period_end,
     };
   } catch (error: any) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      `Failed to update subscription: ${error.message}`
-    );
+    throw new ApiError(httpStatus.BAD_REQUEST, `Failed to update subscription: ${error.message}`);
   }
 };
 
@@ -339,40 +314,25 @@ const cancelSubscription = async (userId: string): Promise<void> => {
       },
     });
   } catch (error: any) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      `Failed to cancel subscription: ${error.message}`
-    );
+    throw new ApiError(httpStatus.BAD_REQUEST, `Failed to cancel subscription: ${error.message}`);
   }
 };
 
 // Handle Stripe webhooks
-const handleWebhook = async (
-  payload: string | Buffer,
-  signature: string
-): Promise<void> => {
+const handleWebhook = async (payload: string | Buffer, signature: string): Promise<void> => {
   let event: Stripe.Event;
 
   // console.log(`Received event: >>>>>>>>>>>>>>>>>>>>>>>>`);
   console.log(`Received event: ${JSON.stringify(payload)}`);
-  console.log(`Signature: ${signature}`);   
+  console.log(`Signature: ${signature}`);
 
   try {
-    event = stripe.webhooks.constructEvent(
-      payload,
-      signature,
-      config.stripe.webhookSecret!
-    );
-    console.log(event, "event:-")
+    event = stripe.webhooks.constructEvent(payload, signature, config.stripe.webhookSecret!);
+    console.log(event, 'event:-');
     console.log(`Received event: >>>>>>>>>>>>>>>>>>>>>>>> hello: ${event.type}`);
   } catch (error: any) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      `Webhook signature verification failed: ${error.message}`
-    );
+    throw new ApiError(httpStatus.BAD_REQUEST, `Webhook signature verification failed: ${error.message}`);
   }
-
-  
 
   switch (event.type) {
     case 'checkout.session.completed':
@@ -404,7 +364,6 @@ const handleWebhook = async (
   }
 };
 
-
 const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session) => {
   try {
     const userId = session.metadata?.userId;
@@ -434,7 +393,7 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session) 
     // Map price nickname to SubscriptionPlanType enum
     const getPlanType = (nickname: string | null): SubscriptionPlanType => {
       if (!nickname) return SubscriptionPlanType.MONTHLY; // Default fallback
-      
+
       const lowerNickname = nickname.toLowerCase();
       if (lowerNickname.includes('yearly') || lowerNickname.includes('annual')) {
         return SubscriptionPlanType.YEARLY;
@@ -445,7 +404,7 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session) 
     };
 
     // Calculate amount safely
-    const amount = price.unit_amount ? price.unit_amount / 100 : 20.00; // Default to $20 if null
+    const amount = price.unit_amount ? price.unit_amount / 100 : 20.0; // Default to $20 if null
 
     // Map Stripe status to our enum
     const mapStripeStatus = (status: string): SubscriptionStatus => {
@@ -492,7 +451,6 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session) 
     });
 
     console.log(`Successfully processed checkout session for user ${userId}, subscription ${stripeSubscription.id}`);
-    
   } catch (error: any) {
     console.error('Error in handleCheckoutSessionCompleted:', {
       error: error.message,
@@ -500,22 +458,10 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session) 
       sessionId: session.id,
       userId: session.metadata?.userId,
     });
-    
   }
 };
 
-
-
-
-
-
-
-
-
-
-const handleSubscriptionCreated = async (
-  subscription: Stripe.Subscription
-): Promise<void> => {
+const handleSubscriptionCreated = async (subscription: Stripe.Subscription): Promise<void> => {
   const userId = subscription.metadata?.userId;
   if (!userId) return;
 
@@ -542,9 +488,7 @@ const handleSubscriptionCreated = async (
   });
 };
 
-const handleSubscriptionUpdated = async (
-  subscription: Stripe.Subscription
-): Promise<void> => {
+const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Promise<void> => {
   await prisma.subscription.updateMany({
     where: {
       stripeSubscriptionId: subscription.id,
@@ -570,17 +514,13 @@ const handleSubscriptionUpdated = async (
       where: { id: dbSubscription.userId },
       data: {
         isProMember: isActive,
-        membershipEnds: isActive 
-          ? new Date(subscription.current_period_end * 1000)
-          : new Date(),
+        membershipEnds: isActive ? new Date(subscription.current_period_end * 1000) : new Date(),
       },
     });
   }
 };
 
-const handleSubscriptionDeleted = async (
-  subscription: Stripe.Subscription
-): Promise<void> => {
+const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Promise<void> => {
   await prisma.subscription.updateMany({
     where: {
       stripeSubscriptionId: subscription.id,
@@ -607,14 +547,10 @@ const handleSubscriptionDeleted = async (
   }
 };
 
-const handleInvoicePaymentSucceeded = async (
-  invoice: Stripe.Invoice
-): Promise<void> => {
+const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Promise<void> => {
   if (!invoice.subscription) return;
 
-  const subscription = await stripe.subscriptions.retrieve(
-    invoice.subscription as string
-  );
+  const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
 
   await prisma.subscription.updateMany({
     where: {
@@ -643,24 +579,16 @@ const handleInvoicePaymentSucceeded = async (
   }
 };
 
-const handleInvoicePaymentFailed = async (
-  invoice: Stripe.Invoice
-): Promise<void> => {
+const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice): Promise<void> => {
   if (!invoice.subscription) return;
 
-  const subscription = await stripe.subscriptions.retrieve(
-    invoice.subscription as string
-  );
+  const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
 
   // If payment fails and subscription becomes past_due or unpaid
   if (subscription.status === 'past_due' || subscription.status === 'unpaid') {
     await prisma.subscription.updateMany({
-      where: {
-        stripeSubscriptionId: subscription.id,
-      },
-      data: {
-        status: subscription.status as SubscriptionStatus,
-      },
+      where: { stripeSubscriptionId: subscription.id },
+      data: { status: subscription.status as SubscriptionStatus },
     });
 
     // Optionally keep pro status for a grace period or remove immediately
