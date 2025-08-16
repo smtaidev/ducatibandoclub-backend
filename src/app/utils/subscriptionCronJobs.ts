@@ -60,7 +60,7 @@ const updateSubscriptionStatuses = async () => {
           await prisma.user.update({
             where: { id: subscription.userId },
             data: {
-              isProMember: isActive,
+              isProMember: isActive ? true : false,
               membershipEnds: isActive 
                 ? new Date(stripeSubscription.current_period_end * 1000)
                 : new Date(),
