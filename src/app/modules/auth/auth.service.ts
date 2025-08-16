@@ -17,7 +17,7 @@ const signUpOrLogin = async (payload: { email: string; password?: string }) => {
 
   let user;
   if (!existingUser) {
-    // Signup: Create new user
+
     user = await prisma.$transaction(async (transactionClient) => {
       const newUser = await transactionClient.user.create({
         data: { email: payload.email.trim() },
@@ -76,7 +76,6 @@ const verifyEmail = async (userId: string, { otpCode }: { otpCode: string }) => 
       throw new ApiError(httpStatus.NOT_FOUND, "User not found");
     }
 
-    // Update email verification status only if not already verified
     if (!user.isEmailVerified) {
       await prisma.user.update({
         where: { id: userId },
@@ -92,7 +91,9 @@ const verifyEmail = async (userId: string, { otpCode }: { otpCode: string }) => 
       config.jwt.access_expires_in as string
     );
 
-    return { id: user.id, email: user.email, accessToken };
+    const hasPassword = !!user.password;
+
+    return { id: user.id, email: user.email, hasPassword, accessToken };
   });
 
   return user;
