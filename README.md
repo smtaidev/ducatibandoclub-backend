@@ -1,8 +1,10 @@
-# MADARA - Investment Strategy Platform
+# MADARA - Investment Strategy Platform  ✅  ✕
 
-MADARA is a comprehensive investment platform that helps users create personalized investment strategies based on their preferences, risk tolerance, and market insights.
+i2Symbol
+https://www.i2symbol.com › symbols
 
-## Features
+i2Symbol
+https://www.i2symbol.com › symbols
 
 ### 🔐 Authentication System
 - User registration and login
@@ -10,7 +12,18 @@ MADARA is a comprehensive investment platform that helps users create personaliz
 - Password management
 - JWT-based authentication
 
+- [ ] User Auth + payment 
+- [ ] 
+
 ### 📊 Investment Strategy Builder
+
+- [ ] Trade analyzed data get every weekend.
+
+
+
+
+
+
 - **Investment Focus Areas**:
   - Technology & Innovation
   - Sustainability & Green
@@ -41,75 +54,3 @@ MADARA is a comprehensive investment platform that helps users create personaliz
 - User roles (User/Admin)
 - Pro membership system
 - User profiles and preferences
-
-## Tech Stack
-
-- **Backend**: Node.js with TypeScript, Express.js
-- **Database**: MongoDB with Prisma ORM
-- **Authentication**: JWT tokens, bcrypt password hashing
-- **Cloud Services**: AWS S3, Firebase Admin
-- **Payment**: Stripe integration
-- **Scheduling**: Node-cron for market data updates
-- **Email**: Nodemailer for notifications
-
-## Getting Started
-
-### Prerequisites
-- Node.js (v18 or higher)
-- MongoDB
-- npm or yarn
-
-### Installation
-
-1. Clone the repository
-```bash
-git clone <repository-url>
-cd Madara-Backend
-```
-
-2. Install dependencies
-```bash
-npm install
-```
-
-3. Set up environment variables
-```bash
-cp .env.example .env
-# Update the .env file with your configuration
-```
-
-4. Generate Prisma client
-```bash
-npm run prisma:gen
-```
-
-5. Start development server
-```bash
-npm run dev
-```
-
-## API Endpoints
-
-### Authentication
-- `POST /api/v1/auth/signup-login` - User registration/login
-- `POST /api/v1/auth/verify-email` - Email verification
-- `POST /api/v1/auth/resend-otp` - Resend OTP
-- `POST /api/v1/auth/set-password` - Set password
-- `POST /api/v1/auth/change-password` - Change password
-
-### Strategy Management
-- `POST /api/v1/strategy` - Create investment strategy
-
-### Market Data
-- `GET /api/v1/market/news` - Get market news
-- `GET /api/v1/sectors` - Get all sectors
-- `GET /api/v1/sectors/:sector` - Get stocks by sector
-- `GET /api/v1/stocks/suggestions` - Get stock suggestions
-
-### User Management
-- `GET /api/v1/users/profile` - Get user profile
-- `PUT /api/v1/users/profile` - Update user profile
-
-## License
-
-ISC
