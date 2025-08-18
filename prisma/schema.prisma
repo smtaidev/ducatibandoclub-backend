@@ -23,6 +23,7 @@ model User {
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   status               UserStatus     @default(INACTIVE)
+  subscriptionStatus   SubscriptionStatus @default(INACTIVE)
   totalRating          Float          @default(0)
   totalRaters          Int            @default(0)
 

@@ -18,10 +18,7 @@ https://www.i2symbol.com › symbols
 ### 📊 Investment Strategy Builder
 
 - [ ] Trade analyzed data get every weekend.
-
-
-
-
+- [ ] get api from client then integrate.
 
 
 - **Investment Focus Areas**:

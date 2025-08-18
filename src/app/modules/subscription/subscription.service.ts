@@ -1,4 +1,4 @@
-import { Subscription, SubscriptionStatus, SubscriptionPlanType, User } from '@prisma/client';
+import { Subscription, SubscriptionStatus, SubscriptionPlanType, User, UserStatus } from '@prisma/client';
 import Stripe from 'stripe';
 import config from '../../../config';
 import ApiError from '../../errors/ApiError';
@@ -26,6 +26,16 @@ const createCheckoutSession = async (
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
   }
 
+  // Check user status - blocked users cannot create subscriptions
+  if (user.status === UserStatus.BLOCKED) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Your account is blocked. Contact support.');
+  }
+
+  // Check if user email is verified
+  if (!user.isEmailVerified) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Please verify your email first');
+  }
+
   // Check if user already has an active subscription
   const existingSubscription = await prisma.subscription.findFirst({
     where: {
@@ -33,6 +43,8 @@ const createCheckoutSession = async (
       status: SubscriptionStatus.ACTIVE,
     },
   });
+
+  console.log('Existing Subscription:- ):- ', existingSubscription);
 
   if (existingSubscription) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'User already has an active subscription');
@@ -103,6 +115,16 @@ const createSubscription = async (
 
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+  }
+
+  // Check user status - blocked users cannot create subscriptions
+  if (user.status === UserStatus.BLOCKED) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Your account is blocked. Contact support.');
+  }
+
+  // Check if user email is verified
+  if (!user.isEmailVerified) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Please verify your email first');
   }
 
   // Check if user already has an active subscription
@@ -310,7 +332,8 @@ const cancelSubscription = async (userId: string): Promise<void> => {
       where: { id: userId },
       data: {
         isProMember: false,
-        membershipEnds: new Date(), // Set to current date
+        subscriptionStatus: SubscriptionStatus.CANCELLED,
+        membershipEnds: new Date(), 
       },
     });
   } catch (error: any) {
@@ -323,13 +346,13 @@ const handleWebhook = async (payload: string | Buffer, signature: string): Promi
   let event: Stripe.Event;
 
   // console.log(`Received event: >>>>>>>>>>>>>>>>>>>>>>>>`);
-  console.log(`Received event: ${JSON.stringify(payload)}`);
-  console.log(`Signature: ${signature}`);
+  // console.log(`Received event: ${JSON.stringify(payload)}`);
+  // console.log(`Signature: ${signature}`);
 
   try {
     event = stripe.webhooks.constructEvent(payload, signature, config.stripe.webhookSecret!);
-    console.log(event, 'event:-');
-    console.log(`Received event: >>>>>>>>>>>>>>>>>>>>>>>> hello: ${event.type}`);
+    // console.log(event, 'event:-');
+    // console.log(`Received event: >>>>>>>>>>>>>>>>>>>>>>>> hello: ${event.type}`);
   } catch (error: any) {
     throw new ApiError(httpStatus.BAD_REQUEST, `Webhook signature verification failed: ${error.message}`);
   }
@@ -446,11 +469,12 @@ const handleCheckoutSessionCompleted = async (session: Stripe.Checkout.Session) 
       where: { id: userId },
       data: {
         isProMember: true,
+        subscriptionStatus: mapStripeStatus(stripeSubscription.status), 
         membershipEnds: new Date(stripeSubscription.current_period_end * 1000),
       },
     });
 
-    console.log(`Successfully processed checkout session for user ${userId}, subscription ${stripeSubscription.id}`);
+    // console.log(`Successfully processed checkout session for user ${userId}, subscription ${stripeSubscription.id}`);
   } catch (error: any) {
     console.error('Error in handleCheckoutSessionCompleted:', {
       error: error.message,
@@ -521,6 +545,7 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
 };
 
 const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Promise<void> => {
+
   await prisma.subscription.updateMany({
     where: {
       stripeSubscriptionId: subscription.id,
@@ -530,12 +555,12 @@ const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Pro
       canceledAt: new Date(),
     },
   });
-
+  
   // Update user pro status
   const dbSubscription = await prisma.subscription.findFirst({
     where: { stripeSubscriptionId: subscription.id },
   });
-
+  
   if (dbSubscription) {
     await prisma.user.update({
       where: { id: dbSubscription.userId },

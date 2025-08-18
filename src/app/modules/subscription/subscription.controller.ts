@@ -6,8 +6,7 @@ import { SubscriptionService } from './subscription.service';
 
 const createCheckoutSession = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user?.id;
-  console.log('User ID:', userId);
-  console.log('Creating subscription for user:', req.user)
+  
   const result = await SubscriptionService.createCheckoutSession(userId, req.body);
 
   sendResponse(res, {

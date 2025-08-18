@@ -93,7 +93,7 @@ const verifyEmail = async (userId: string, { otpCode }: { otpCode: string }) => 
 
     const hasPassword = !!user.password;
 
-    return { id: user.id, email: user.email, hasPassword, accessToken };
+    return { id: user.id, email: user.email, isProMember: user.isProMember, hasPassword, accessToken };
   });
 
   return user;
