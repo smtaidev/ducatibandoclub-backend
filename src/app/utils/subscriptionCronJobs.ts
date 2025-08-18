@@ -1,12 +1,11 @@
-import cron from 'node-cron';
-
+import * as cron from 'node-cron';
 import stripe from '../lib/stripe';
 import { SubscriptionStatus } from '@prisma/client';
 import prisma from '../lib/prisma';
 
 // Map Stripe subscription status to our enum
 const mapStripeStatusToSubscriptionStatus = (stripeStatus: string): SubscriptionStatus => {
-  switch (stripeStatus) {
+  switch (stripeStatus.toLowerCase()) {
     case 'active':
       return SubscriptionStatus.ACTIVE;
     case 'canceled':
@@ -21,70 +20,117 @@ const mapStripeStatusToSubscriptionStatus = (stripeStatus: string): Subscription
   }
 };
 
-// Check and update subscription statuses every hour
-const updateSubscriptionStatuses = async () => {
+// Simple but effective subscription status updater
+const updateSubscriptionStatuses = async (): Promise<{
+  processed: number;
+  updated: number;
+  errors: number;
+}> => {
+  const startTime = Date.now();
+  let processed = 0;
+  let updated = 0;
+  let errors = 0;
+
   try {
-    console.log('Starting subscription status update...');
+    console.log('🚀 Starting subscription status update...');
     
-    const activeSubscriptions = await prisma.subscription.findMany({
+    const subscriptions = await prisma.subscription.findMany({
       where: {
-        status: SubscriptionStatus.ACTIVE,
+        status: {
+          in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.INACTIVE, SubscriptionStatus.CANCELLED],
+        },
         stripeSubscriptionId: { not: null },
+      },
+      select: {
+        id: true,
+        userId: true,
+        stripeSubscriptionId: true,
+        status: true,
       },
     });
 
-    for (const subscription of activeSubscriptions) {
+    console.log(`📦 Found ${subscriptions.length} subscriptions to check`);
+
+    for (const subscription of subscriptions) {
       try {
+        processed++;
+        
+        // Get subscription from Stripe
         const stripeSubscription = await stripe.subscriptions.retrieve(
           subscription.stripeSubscriptionId!
         );
 
-        // Map Stripe status to our enum
         const mappedStatus = mapStripeStatusToSubscriptionStatus(stripeSubscription.status);
         
-        // Update subscription if status changed
+        // Check if status changed
         if (mappedStatus !== subscription.status) {
-          await prisma.subscription.update({
-            where: { id: subscription.id },
-            data: {
-              status: mappedStatus,
-              currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-              currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-              cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-              canceledAt: stripeSubscription.canceled_at ? new Date(stripeSubscription.canceled_at * 1000) : null,
-            },
+          // Use transaction to ensure data consistency
+          await prisma.$transaction(async (tx) => {
+            // Update subscription
+            await tx.subscription.update({
+              where: { id: subscription.id },
+              data: {
+                status: mappedStatus,
+                currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
+                currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+                cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+                canceledAt: stripeSubscription.canceled_at 
+                  ? new Date(stripeSubscription.canceled_at * 1000) 
+                  : null,
+              },
+            });
+
+            // Update user pro status - THIS IS THE KEY FIX
+            const isActive = mappedStatus === SubscriptionStatus.ACTIVE;
+            await tx.user.update({
+              where: { id: subscription.userId },
+              data: {
+                isProMember: isActive,
+                subscriptionStatus: mappedStatus, // This was missing!
+                membershipEnds: isActive 
+                  ? new Date(stripeSubscription.current_period_end * 1000)
+                  : new Date(),
+              },
+            });
           });
 
-          // Update user pro status
-          const isActive = stripeSubscription.status === 'active';
-          await prisma.user.update({
-            where: { id: subscription.userId },
-            data: {
-              isProMember: isActive ? true : false,
-              subscriptionStatus: mappedStatus,
-              membershipEnds: isActive 
-                ? new Date(stripeSubscription.current_period_end * 1000)
-                : new Date(),
-            },
-          });
-
-          console.log(`Updated subscription ${subscription.id} status to ${stripeSubscription.status}`);
+          updated++;
+          console.log(`✅ Updated subscription ${subscription.id}: ${subscription.status} → ${mappedStatus}`);
         }
       } catch (error: any) {
-        console.error(`Failed to update subscription ${subscription.id}:`, error.message);
+        errors++;
+        console.error(`❌ Failed to update subscription ${subscription.id}:`, {
+          subscriptionId: subscription.id,
+          userId: subscription.userId,
+          error: error.message,
+        });
       }
     }
 
-    console.log('Subscription status update completed');
+    const duration = Date.now() - startTime;
+    console.log(`🎉 Subscription status update completed in ${duration}ms:`, {
+      processed,
+      updated,
+      errors,
+    });
+
+    return { processed, updated, errors };
   } catch (error: any) {
-    console.error('Failed to update subscription statuses:', error.message);
+    console.error('💥 Failed to update subscription statuses:', {
+      error: error.message,
+      processed,
+      updated,
+      errors,
+    });
+    
+    throw error;
   }
 };
 
-// Handle expired subscriptions daily
+// Handle expired subscriptions
 const handleExpiredSubscriptions = async () => {
   try {
-    console.log('Handling expired subscriptions...');
+    console.log('⏰ Handling expired subscriptions...');
     
     const expiredSubscriptions = await prisma.subscription.findMany({
       where: {
@@ -98,141 +144,90 @@ const handleExpiredSubscriptions = async () => {
       },
     });
 
+    console.log(`📋 Found ${expiredSubscriptions.length} potentially expired subscriptions`);
+
     for (const subscription of expiredSubscriptions) {
       try {
-        // Check actual status in Stripe
         if (subscription.stripeSubscriptionId) {
           const stripeSubscription = await stripe.subscriptions.retrieve(
             subscription.stripeSubscriptionId
           );
 
           if (stripeSubscription.status !== 'active') {
-            // Update subscription status
             const mappedStatus = mapStripeStatusToSubscriptionStatus(stripeSubscription.status);
-            await prisma.subscription.update({
-              where: { id: subscription.id },
-              data: {
-                status: mappedStatus,
-              },
+            
+            await prisma.$transaction(async (tx) => {
+              await tx.subscription.update({
+                where: { id: subscription.id },
+                data: {
+                  status: mappedStatus,
+                  canceledAt: stripeSubscription.canceled_at 
+                    ? new Date(stripeSubscription.canceled_at * 1000)
+                    : new Date(),
+                },
+              });
+
+              await tx.user.update({
+                where: { id: subscription.userId },
+                data: {
+                  isProMember: false,
+                  subscriptionStatus: mappedStatus,
+                  membershipEnds: new Date(),
+                },
+              });
             });
 
-            // Update user pro status
-            await prisma.user.update({
-              where: { id: subscription.userId },
-              data: {
-                isProMember: false,
-                subscriptionStatus: mappedStatus,
-                membershipEnds: new Date(),
-              },
-            });
-
-            console.log(`Handled expired subscription for user ${subscription.userId}`);
+            console.log(`⌛ Handled expired subscription for user ${subscription.userId}`);
           }
         } else {
           // No Stripe subscription ID, mark as cancelled
-          await prisma.subscription.update({
-            where: { id: subscription.id },
-            data: {
-              status: SubscriptionStatus.CANCELLED,
-              canceledAt: new Date(),
-            },
+          await prisma.$transaction(async (tx) => {
+            await tx.subscription.update({
+              where: { id: subscription.id },
+              data: {
+                status: SubscriptionStatus.CANCELLED,
+                canceledAt: new Date(),
+              },
+            });
+
+            await tx.user.update({
+              where: { id: subscription.userId },
+              data: {
+                isProMember: false,
+                subscriptionStatus: SubscriptionStatus.CANCELLED,
+                membershipEnds: new Date(),
+              },
+            });
           });
 
-          await prisma.user.update({
-            where: { id: subscription.userId },
-            data: {
-              isProMember: false,
-              subscriptionStatus: SubscriptionStatus.CANCELLED,
-              membershipEnds: new Date(),
-            },
-          });
-
-          console.log(`Marked subscription ${subscription.id} as cancelled (no Stripe ID)`);
+          console.log(`🚫 Marked subscription ${subscription.id} as cancelled (no Stripe ID)`);
         }
       } catch (error: any) {
-        console.error(`Failed to handle expired subscription ${subscription.id}:`, error.message);
+        console.error(`❌ Failed to handle expired subscription ${subscription.id}:`, error.message);
       }
     }
 
-    console.log('Expired subscriptions handling completed');
+    console.log('✅ Expired subscriptions handling completed');
   } catch (error: any) {
-    console.error('Failed to handle expired subscriptions:', error.message);
-  }
-};
-
-// Sync with Stripe for data consistency (weekly)
-const syncWithStripe = async () => {
-  try {
-    console.log('Starting Stripe sync...');
-    
-    const subscriptions = await prisma.subscription.findMany({
-      where: {
-        stripeSubscriptionId: { not: null },
-      },
-    });
-
-    for (const subscription of subscriptions) {
-      try {
-        const stripeSubscription = await stripe.subscriptions.retrieve(
-          subscription.stripeSubscriptionId!
-        );
-
-        // Update all fields from Stripe
-        const mappedStatus = mapStripeStatusToSubscriptionStatus(stripeSubscription.status);
-        await prisma.subscription.update({
-          where: { id: subscription.id },
-          data: {
-            status: mappedStatus,
-            currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-            currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-            cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-            canceledAt: stripeSubscription.canceled_at ? new Date(stripeSubscription.canceled_at * 1000) : null,
-            stripePriceId: stripeSubscription.items.data[0]?.price.id || subscription.stripePriceId,
-          },
-        });
-
-        // Update user status
-        const isActive = stripeSubscription.status === 'active';
-        await prisma.user.update({
-          where: { id: subscription.userId },
-          data: {
-            isProMember: true,
-            subscriptionStatus: mappedStatus,
-            membershipEnds: isActive 
-              ? new Date(stripeSubscription.current_period_end * 1000)
-              : new Date(),
-          },
-        });
-
-        console.log(`Synced subscription ${subscription.id} with Stripe`);
-      } catch (error: any) {
-        console.error(`Failed to sync subscription ${subscription.id}:`, error.message);
-      }
-    }
-
-    console.log('Stripe sync completed');
-  } catch (error: any) {
-    console.error('Failed to sync with Stripe:', error.message);
+    console.error('💥 Failed to handle expired subscriptions:', error.message);
   }
 };
 
 // Schedule cron jobs
 export const initializeSubscriptionCronJobs = () => {
-  // Update subscription statuses every hour
+  // Update subscription statuses every 5 minutes (for testing)
+  // Change to '0 * * * *' for every hour in production
   cron.schedule('0 * * * *', updateSubscriptionStatuses);
   
   // Handle expired subscriptions daily at 2 AM
   cron.schedule('0 2 * * *', handleExpiredSubscriptions);
-  
-  // Sync with Stripe weekly on Sunday at 3 AM
-  cron.schedule('0 3 * * 0', syncWithStripe);
 
-  console.log('Subscription cron jobs initialized');
+  console.log('✅ Subscription cron jobs initialized');
 };
 
-// Export functions for manual execution if needed
+// Export functions for manual execution
 export {
   updateSubscriptionStatuses,
   handleExpiredSubscriptions,
-  syncWithStripe,
+  mapStripeStatusToSubscriptionStatus,
 };

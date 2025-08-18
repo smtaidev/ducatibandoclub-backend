@@ -566,6 +566,7 @@ const handleSubscriptionDeleted = async (subscription: Stripe.Subscription): Pro
       where: { id: dbSubscription.userId },
       data: {
         isProMember: false,
+        subscriptionStatus: SubscriptionStatus.CANCELLED,
         membershipEnds: new Date(),
       },
     });
