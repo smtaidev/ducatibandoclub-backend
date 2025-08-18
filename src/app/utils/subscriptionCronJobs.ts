@@ -61,6 +61,7 @@ const updateSubscriptionStatuses = async () => {
             where: { id: subscription.userId },
             data: {
               isProMember: isActive ? true : false,
+              subscriptionStatus: mappedStatus,
               membershipEnds: isActive 
                 ? new Date(stripeSubscription.current_period_end * 1000)
                 : new Date(),
@@ -120,6 +121,7 @@ const handleExpiredSubscriptions = async () => {
               where: { id: subscription.userId },
               data: {
                 isProMember: false,
+                subscriptionStatus: mappedStatus,
                 membershipEnds: new Date(),
               },
             });
@@ -140,6 +142,7 @@ const handleExpiredSubscriptions = async () => {
             where: { id: subscription.userId },
             data: {
               isProMember: false,
+              subscriptionStatus: SubscriptionStatus.CANCELLED,
               membershipEnds: new Date(),
             },
           });
@@ -194,6 +197,7 @@ const syncWithStripe = async () => {
           where: { id: subscription.userId },
           data: {
             isProMember: true,
+            subscriptionStatus: mappedStatus,
             membershipEnds: isActive 
               ? new Date(stripeSubscription.current_period_end * 1000)
               : new Date(),
