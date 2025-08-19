@@ -8,12 +8,36 @@ import globalErrorHandler from "./app/errors/globalErrorHandler";
 import router from "./app/routes";
 import { SubscriptionController } from "./app/modules/subscription/subscription.controller";
 
+console.log("ba con ler cors ?>>>>>>>>>>>>>>");
+
 const app: Application = express();
 
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'https://localhost:3000',
+    '*',
+    'https://c0ed9c3a4f86.ngrok-free.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'Pragma',
+    'Expires',
+    'Access-Control-Allow-Origin'
+  ],
+  preflightContinue: false,
+  optionsSuccessStatus: 200
+};
+
 app.use(
-  cors({
-    origin: ["http://localhost:3000"],
-  })
+  cors(corsOptions)
 );
 
 
