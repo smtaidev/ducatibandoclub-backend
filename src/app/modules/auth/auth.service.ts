@@ -275,6 +275,99 @@ const passwordLogin = async (payload: { email: string; password: string }) => {
   };
 };
 
+const forgotPassword = async (payload: { email: string }) => {
+  const user = await prisma.user.findUnique({
+    where: { email: payload.email },
+  });
+
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found with this email");
+  }
+
+  if (user.status === UserStatus.BLOCKED) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Your account is blocked. Contact support.");
+  }
+
+  if (!user.isEmailVerified) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Please verify your email first before resetting password");
+  }
+
+  // Delete any existing OTP for this user
+  await prisma.oTP.deleteMany({ where: { userId: user.id } });
+
+  // Send password reset OTP
+  OTPFn(user.email, user.id, "Password Reset", emailTemplate);
+
+  return {
+    userId: user.id,
+    email: user.email,
+    message: "Password reset OTP sent to your email",
+  };
+};
+
+const verifyResetOtp = async (userId: string, { otpCode }: { otpCode: string }) => {
+  const otpRecord = await prisma.oTP.findUnique({
+    where: { userId_otpCode: { userId, otpCode } },
+  });
+
+  if (!otpRecord) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid or expired OTP");
+  }
+
+  if (otpRecord.expiry < new Date()) {
+    await prisma.oTP.delete({ where: { id: otpRecord.id } });
+    throw new ApiError(httpStatus.REQUEST_TIMEOUT, "OTP expired");
+  }
+
+  const user = await prisma.user.findUnique({ 
+    where: { id: userId },
+    select: { id: true, email: true, role: true }
+  });
+  
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  // Generate a temporary access token for password reset
+  const resetToken = jwtHelpers.generateToken(
+    { id: user.id, email: user.email, role: user.role, purpose: 'password-reset' },
+    config.jwt.access_secret as Secret,
+    '15m' // 15 minutes expiry for reset token
+  );
+
+  // Delete the used OTP
+  await prisma.oTP.delete({ where: { id: otpRecord.id } });
+
+  return {
+    userId: user.id,
+    email: user.email,
+    resetToken,
+    message: "OTP verified successfully. You can now reset your password."
+  };
+};
+
+const resetPassword = async (userId: string, password: string) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (user.status === UserStatus.BLOCKED) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Your account is blocked. Contact support.");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, Number(config.bcrypt_salt_rounds));
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedPassword },
+  });
+
+  // Delete any remaining OTPs for this user
+  await prisma.oTP.deleteMany({ where: { userId } });
+
+  return { message: "Password reset successfully" };
+};
+
 export const AuthServices = {
   signUpOrLogin,
   verifyEmail,
@@ -285,6 +378,9 @@ export const AuthServices = {
   updateProfile,
   getMe,
   passwordLogin,
+  forgotPassword,
+  verifyResetOtp,
+  resetPassword,
 };
 
 

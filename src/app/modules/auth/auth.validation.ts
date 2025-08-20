@@ -48,4 +48,23 @@ export const authValidation = {
       password: z.string().min(6, "Password must be at least 6 characters"),
     }),
   }),
+
+  forgotPassword: z.object({
+    body: z.object({
+      email: z.string().email("Invalid email address"),
+    }),
+  }),
+
+  verifyResetOtp: z.object({
+    body: z.object({
+      userId: z.string().min(1, "User ID is required"),
+      otpCode: z.string().min(1, "OTP code is required"),
+    }),
+  }),
+
+  resetPassword: z.object({
+    body: z.object({
+      password: z.string().min(6, "Password must be at least 6 characters"),
+    }),
+  }),
 };

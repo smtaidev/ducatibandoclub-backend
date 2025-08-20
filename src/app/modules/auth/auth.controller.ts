@@ -168,6 +168,47 @@ const passwordLogin = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const forgotPassword = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthServices.forgotPassword(req.body);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'Password reset OTP sent to your email',
+    data: result,
+  });
+});
+
+const verifyResetOtp = catchAsync(async (req: Request, res: Response) => {
+  const { userId, otpCode } = req.body;
+  const result = await AuthServices.verifyResetOtp(userId, { otpCode });
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'Reset OTP verified successfully',
+    data: result,
+  });
+});
+
+const resetPassword = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.UNAUTHORIZED,
+      message: 'Reset token required',
+      data: null,
+    });
+  }
+  
+  const { password } = req.body;
+  const result = await AuthServices.resetPassword(userId, password);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'Password reset successfully',
+    data: result,
+  });
+});
+
 export const AuthControllers = {
   signUpOrLogin,
   verifiedEmail,
@@ -178,6 +219,9 @@ export const AuthControllers = {
   updateProfile,
   getMe,
   passwordLogin,
+  forgotPassword,
+  verifyResetOtp,
+  resetPassword,
 };
 
 

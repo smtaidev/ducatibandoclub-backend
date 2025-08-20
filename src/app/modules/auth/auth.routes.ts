@@ -61,6 +61,25 @@ router.post(
 );
 
 router.post(
+  "/forgot-password",
+  validateRequest(authValidation.forgotPassword),
+  AuthControllers.forgotPassword
+);
+
+router.post(
+  "/verify-reset-otp",
+  validateRequest(authValidation.verifyResetOtp),
+  AuthControllers.verifyResetOtp
+);
+
+router.post(
+  "/reset-password",
+  validateRequest(authValidation.resetPassword),
+  auth(),
+  AuthControllers.resetPassword
+);
+
+router.post(
   "/logout",
   auth(),
   AuthControllers.logout
