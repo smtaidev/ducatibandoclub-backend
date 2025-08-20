@@ -165,6 +165,74 @@ const logout = async (userId: string) => {
   return { message: "Logged out successfully" };
 };
 
+const updateProfile = async (userId: string, payload: { name?: string; image?: string }) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (user.status === UserStatus.BLOCKED) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Your account is blocked. Contact support.");
+  }
+
+  // Create update data object with only provided fields
+  const updateData: { name?: string; image?: string } = {};
+  
+  if (payload.name !== undefined) {
+    updateData.name = payload.name.trim();
+  }
+  if (payload.image !== undefined) {
+    updateData.image = payload.image;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: updateData,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      isProMember: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  });
+
+  return updatedUser;
+};
+
+const getMe = async (userId: string) => {
+  const user = await prisma.user.findUnique({ 
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      isEmailVerified: true,
+      isProMember: true,
+      role: true,
+      status: true,
+      subscriptionStatus: true,
+      membershipEnds: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  });
+  
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (user.status === UserStatus.BLOCKED) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Your account is blocked. Contact support.");
+  }
+
+  return user;
+};
+
 export const AuthServices = {
   signUpOrLogin,
   verifyEmail,
@@ -172,6 +240,8 @@ export const AuthServices = {
   setPassword,
   changePassword,
   logout,
+  updateProfile,
+  getMe,
 };
 
 

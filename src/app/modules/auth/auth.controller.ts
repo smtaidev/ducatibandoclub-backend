@@ -120,6 +120,44 @@ const logout = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateProfile = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.UNAUTHORIZED,
+      message: 'User not authenticated',
+      data: null,
+    });
+  }
+  
+  const result = await AuthServices.updateProfile(userId, req.body);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'Profile updated successfully',
+    data: result,
+  });
+});
+
+const getMe = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.UNAUTHORIZED,
+      message: 'User not authenticated',
+      data: null,
+    });
+  }
+  
+  const result = await AuthServices.getMe(userId);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'User profile retrieved successfully',
+    data: result,
+  });
+});
+
 export const AuthControllers = {
   signUpOrLogin,
   verifiedEmail,
@@ -127,6 +165,8 @@ export const AuthControllers = {
   setPassword,
   changePassword,
   logout,
+  updateProfile,
+  getMe,
 };
 
 

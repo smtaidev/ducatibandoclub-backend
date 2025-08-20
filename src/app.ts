@@ -15,9 +15,8 @@ const app: Application = express();
 const corsOptions = {
   origin: [
     'http://localhost:3000',
-    'https://localhost:3000',
-    '*',
-    'https://c0ed9c3a4f86.ngrok-free.app'
+    'https://04e7b13bed3f.ngrok-free.app',
+    'https://ducatibandoclub-client.vercel.app',
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -30,7 +29,8 @@ const corsOptions = {
     'Cache-Control',
     'Pragma',
     'Expires',
-    'Access-Control-Allow-Origin'
+    "Content-Type", 
+    "Authorization"
   ],
   preflightContinue: false,
   optionsSuccessStatus: 200

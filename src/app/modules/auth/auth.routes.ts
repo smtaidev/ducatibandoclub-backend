@@ -38,6 +38,19 @@ router.post(
   AuthControllers.changePassword
 );
 
+router.patch(
+  "/update-profile",
+  validateRequest(authValidation.updateProfile),
+  auth(),
+  AuthControllers.updateProfile
+);
+
+router.get(
+  "/get-me",
+  auth(),
+  AuthControllers.getMe
+);
+
 router.post(
   "/logout",
   auth(),
