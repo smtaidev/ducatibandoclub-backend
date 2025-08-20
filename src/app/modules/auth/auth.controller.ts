@@ -158,6 +158,16 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const passwordLogin = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthServices.passwordLogin(req.body);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'User logged in successfully',
+    data: result,
+  });
+});
+
 export const AuthControllers = {
   signUpOrLogin,
   verifiedEmail,
@@ -167,6 +177,7 @@ export const AuthControllers = {
   logout,
   updateProfile,
   getMe,
+  passwordLogin,
 };
 
 

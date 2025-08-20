@@ -9,35 +9,43 @@ import router from "./app/routes";
 import { SubscriptionController } from "./app/modules/subscription/subscription.controller";
 
 console.log("ba con ler cors ?>>>>>>>>>>>>>>");
+import corsConfig from "./config/cors-config";
 
 const app: Application = express();
 
-const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'https://04e7b13bed3f.ngrok-free.app',
-    'https://ducatibandoclub-client.vercel.app',
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
-    'Cache-Control',
-    'Pragma',
-    'Expires',
-    "Content-Type", 
-    "Authorization"
-  ],
-  preflightContinue: false,
-  optionsSuccessStatus: 200
-};
+// const corsOptions = {
+//   origin: [
+//     'http://localhost:3000',
+//     'https://04e7b13bed3f.ngrok-free.app',
+//     'https://ducatibandoclub-client.vercel.app',
+//   ],
+//   credentials: true,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//   allowedHeaders: [
+//     'Origin',
+//     'X-Requested-With',
+//     'Content-Type',
+//     'Accept',
+//     'Authorization',
+//     'Cache-Control',
+//     'Pragma',
+//     'Expires',
+//     "Content-Type", 
+//     "Authorization"
+//   ],
+//   preflightContinue: false,
+//   optionsSuccessStatus: 200
+// };
+
+const authOptions = {
+   origin: true,
+   credentials: true,
+   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+ }
 
 app.use(
-  cors(corsOptions)
+  // corsConfig()
+  cors(authOptions)
 );
 
 

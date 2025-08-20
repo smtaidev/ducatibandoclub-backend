@@ -213,6 +213,7 @@ const getMe = async (userId: string) => {
       image: true,
       isEmailVerified: true,
       isProMember: true,
+      password: true,
       role: true,
       status: true,
       subscriptionStatus: true,
@@ -230,7 +231,48 @@ const getMe = async (userId: string) => {
     throw new ApiError(httpStatus.FORBIDDEN, "Your account is blocked. Contact support.");
   }
 
-  return user;
+  const hasPassword = !!user.password;
+
+  const userData = {...user, hasPassword };
+
+  return userData;
+};
+
+const passwordLogin = async (payload: { email: string; password: string }) => {
+  const user = await prisma.user.findUnique({
+    where: { email: payload.email },
+  });
+
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found with this email");
+  }
+
+  if (user.status === UserStatus.BLOCKED) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Your account is blocked. Contact support.");
+  }
+
+  if (!user.password) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Password not set for this account. Please use email login.");
+  }
+
+  if (!user.isEmailVerified) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Please verify your email first");
+  }
+
+  const isCorrectPassword = await bcrypt.compare(payload.password, user.password);
+  if (!isCorrectPassword) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Incorrect password");
+  }
+
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image,
+    isProMember: user.isProMember,
+    role: user.role
+  };
 };
 
 export const AuthServices = {
@@ -242,6 +284,7 @@ export const AuthServices = {
   logout,
   updateProfile,
   getMe,
+  passwordLogin,
 };
 
 

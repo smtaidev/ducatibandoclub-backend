@@ -6,6 +6,14 @@ import auth, { checkOTP } from '../../middlewares/auth';
 
 const router = express.Router();
 
+
+
+router.get(
+  "/get-me",
+  auth(),
+  AuthControllers.getMe
+);
+
 router.post(
   '/login',
   validateRequest(authValidation.signUpOrLogin),
@@ -45,10 +53,11 @@ router.patch(
   AuthControllers.updateProfile
 );
 
-router.get(
-  "/get-me",
-  auth(),
-  AuthControllers.getMe
+
+router.post(
+  "/password-login",
+  validateRequest(authValidation.passwordLogin),
+  AuthControllers.passwordLogin
 );
 
 router.post(
