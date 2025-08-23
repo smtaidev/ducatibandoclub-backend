@@ -12,7 +12,7 @@ let sentEmailUtility = async (
 ) => {
   let transporter = nodemailer.createTransport(
     smtpTransporter({
-      host: "mail.hasanmajedul.com",
+      host: "smtp.gmail.com",
       secure: true,
       port: 465,
       auth: {

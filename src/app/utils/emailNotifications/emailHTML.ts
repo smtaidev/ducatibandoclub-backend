@@ -4,7 +4,7 @@ export const emailTemplate = (otp: any) => `<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Al-Sultan Email Verification</title>
+    <title>Madara  Email Verification</title>
     <style>
         /* Reset styles for email clients */
         body,
@@ -313,27 +313,28 @@ export const emailTemplate = (otp: any) => `<!DOCTYPE html>
             <td style="padding: 20px 0;">
                 <div class="email-container">
                     <!-- Header with Logo -->
-                    <div class="email-header">
-                        <div class="company-logo">
-                            <div class="logo-icon">
-                                <img src="https://iili.io/FzrucdX.png" alt="logo" />
-                            </div>
-                        </div>
+                    <div class="email-header" style="text-align: center; padding: 20px 0; background: #f4f4f4;">
+                      <div class="company-logo" style="display: inline-block; padding: 12px 24px; border-radius: 8px; background: linear-gradient(135deg, #2a5298, #1e3c72); width: 300px; height: 80px; position: relative;">
+                        <span style="font-size: 24px; font-weight: bold; color: #ffffff; font-family: Arial, sans-serif; letter-spacing: 2px;">
+                          MADARA
+                        </span>
+                      </div>
                     </div>
+
 
                     <!-- Email Content -->
                     <div class="email-content">
                         <p class="greeting">Hello User,</p>
 
                         <p class="main-text">
-                            Thank you for choosing <span class="brand-highlight">Al-Sultan</span>. Use this OTP to
+                            Thank you for choosing <span class="brand-highlight">Madara </span>. Use this OTP to
                             complete your Sign Up procedures and verify your account on <span
-                                class="brand-highlight">Al-Sultan</span>.
+                                class="brand-highlight">Madara </span>.
                         </p>
 
                         <p class="warning-text">
                             Remember, Never share this OTP with anyone, not even if <span
-                                class="brand-highlight">Al-Sultan</span> ask to you.
+                                class="brand-highlight">Madara </span> ask to you.
                         </p>
 
                         <!-- Verification Code Section -->
@@ -358,7 +359,7 @@ export const emailTemplate = (otp: any) => `<!DOCTYPE html>
 
                         <div class="email-signature">
                             <p class="signature-text">Regards,</p>
-                            <p class="team-name">Team <span class="brand-highlight">Al-Sultan</span>.</p>
+                            <p class="team-name">Team <span class="brand-highlight">Madara </span>.</p>
                         </div>
                     </div>
                 </div>
