@@ -57,9 +57,8 @@ export const emailTemplate = (otp: any) => `<!DOCTYPE html>
         }
 
         .company-logo {
-            width: 120px;
-            height: 120px;
-            background-color: #2c3e50;
+            width: 80px;
+            height: 80px;
             border-radius: 8px;
             margin: 0 auto 30px auto;
             display: flex;
@@ -72,6 +71,9 @@ export const emailTemplate = (otp: any) => `<!DOCTYPE html>
             color: white;
             font-size: 24px;
         }
+      .logo-img{
+        width: 100px;
+      }
 
         .company-name {
             position: absolute;
@@ -311,14 +313,13 @@ export const emailTemplate = (otp: any) => `<!DOCTYPE html>
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
             <td style="padding: 20px 0;">
-                <div class="email-container">
-                    <!-- Header with Logo -->
-                    <div class="email-header" style="text-align: center; padding: 20px 0; background: #f4f4f4;">
-                      <div class="company-logo" style="display: inline-block; padding: 12px 24px; border-radius: 8px; background: linear-gradient(135deg, #2a5298, #1e3c72); width: 300px; height: 80px; position: relative;">
-                        <span style="font-size: 24px; font-weight: bold; color: #ffffff; font-family: Arial, sans-serif; letter-spacing: 2px;">
-                          MADARA
-                        </span>
-                      </div>
+                 <!-- Header with Logo -->
+                    <div class="email-header">
+                        <div class="company-logo">
+                            <div class="logo-icon">
+                                <img class="logo-img" src="https://i.ibb.co.com/fz2b0VVG/madara-Logo.png" alt="logo" />
+                            </div>
+                        </div>
                     </div>
 
 
