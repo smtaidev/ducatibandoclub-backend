@@ -213,6 +213,7 @@ const getMe = async (userId: string) => {
       image: true,
       isEmailVerified: true,
       isProMember: true,
+      cancelAtPeriodEnd: true,
       password: true,
       role: true,
       status: true,
