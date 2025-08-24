@@ -26,6 +26,14 @@ const updateSubscription = z.object({
   }),
 });
 
+const createBillingPortalSession = z.object({
+  body: z.object({
+    returnUrl: z.string({
+      required_error: 'Return URL is required',
+    }).url('Must be a valid URL'),
+  }),
+});
+
 const subscriptionWebhook = z.object({
   body: z.any(),
   headers: z.object({
@@ -37,6 +45,7 @@ const subscriptionWebhook = z.object({
 
 export const SubscriptionValidation = {
   createCheckoutSession,
+  createBillingPortalSession,
   createSubscription,
   updateSubscription,
   subscriptionWebhook,

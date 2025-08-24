@@ -59,6 +59,21 @@ router.delete(
   SubscriptionController.cancelSubscription
 );
 
+// Create billing portal session
+router.post(
+  '/create-billing-portal-session',
+  auth(Role.USER),
+  validateRequest(SubscriptionValidation.createBillingPortalSession),
+  SubscriptionController.createBillingPortalSession
+);
+
+// Reactivate cancelled subscription
+router.post(
+  '/reactivate',
+  auth(Role.USER),
+  SubscriptionController.reactivateSubscription
+);
+
 // Stripe webhook endpoint (no auth required)
 router.post(
   '/webhook',

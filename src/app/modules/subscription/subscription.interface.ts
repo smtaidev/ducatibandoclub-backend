@@ -31,3 +31,7 @@ export interface ICheckoutSession {
   cancelUrl: string;
   priceId?: string;
 }
+
+export interface IBillingPortalSession {
+  returnUrl: string;
+}

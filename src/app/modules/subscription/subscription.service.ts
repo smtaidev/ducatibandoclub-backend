@@ -2,10 +2,11 @@ import { Subscription, SubscriptionStatus, SubscriptionPlanType, User, UserStatu
 import Stripe from 'stripe';
 import config from '../../../config';
 import ApiError from '../../errors/ApiError';
-import httpStatus from 'http-status';
+import * as httpStatus from 'http-status';
 import stripe from '../../lib/stripe';
 import prisma from '../../lib/prisma';
 import {
+  IBillingPortalSession,
   ICheckoutSession,
   ICreateSubscription,
   ISubscriptionResponse,
@@ -304,6 +305,155 @@ const updateSubscription = async (userId: string, data: IUpdateSubscription): Pr
   }
 };
 
+// Create Stripe Billing Portal Session
+const createBillingPortalSession = async (
+  userId: string,
+  data: IBillingPortalSession
+): Promise<{ url: string }> => {
+  // Get user details
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+  }
+
+  // Check if user has a subscription (active or cancelled)
+  const subscription = await prisma.subscription.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!subscription || !subscription.stripeCustomerId) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'No subscription found for this user');
+  }
+
+  try {
+    // Create billing portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: subscription.stripeCustomerId,
+      return_url: data.returnUrl,
+    });
+
+    return {
+      url: session.url,
+    };
+  } catch (error: any) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `Failed to create billing portal session: ${error.message}`);
+  }
+};
+
+// Reactivate cancelled subscription
+const reactivateSubscription = async (userId: string): Promise<ISubscriptionResponse> => {
+  // Get user details
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+  }
+
+  // Check user status - blocked users cannot reactivate subscriptions
+  if (user.status === UserStatus.BLOCKED) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Your account is blocked. Contact support.');
+  }
+
+  // Check if user email is verified
+  if (!user.isEmailVerified) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Please verify your email first');
+  }
+
+  // Check if user has an active subscription
+  const activeSubscription = await prisma.subscription.findFirst({
+    where: {
+      userId,
+      status: SubscriptionStatus.ACTIVE,
+    },
+  });
+
+  if (activeSubscription) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'User already has an active subscription');
+  }
+
+  // Find the most recent cancelled subscription
+  const cancelledSubscription = await prisma.subscription.findFirst({
+    where: {
+      userId,
+      status: SubscriptionStatus.CANCELLED,
+    },
+    orderBy: { canceledAt: 'desc' },
+  });
+
+  if (!cancelledSubscription || !cancelledSubscription.stripeCustomerId) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'No cancelled subscription found to reactivate');
+  }
+
+  try {
+    // Create a new subscription with the same plan
+    const newSubscription = await stripe.subscriptions.create({
+      customer: cancelledSubscription.stripeCustomerId,
+      items: [
+        {
+          price: cancelledSubscription.stripePriceId || config.stripe.priceId,
+        },
+      ],
+      payment_settings: {
+        save_default_payment_method: 'on_subscription',
+      },
+      metadata: {
+        userId: userId,
+        reactivatedFrom: cancelledSubscription.stripeSubscriptionId || '',
+      },
+    });
+
+    // Create new subscription record in database
+    await prisma.subscription.create({
+      data: {
+        userId,
+        stripeCustomerId: cancelledSubscription.stripeCustomerId,
+        stripeSubscriptionId: newSubscription.id,
+        stripePriceId: cancelledSubscription.stripePriceId || config.stripe.priceId,
+        status: newSubscription.status as SubscriptionStatus,
+        currentPeriodStart: new Date(newSubscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(newSubscription.current_period_end * 1000),
+        plan: cancelledSubscription.plan,
+        amount: cancelledSubscription.amount,
+        currency: cancelledSubscription.currency,
+        startDate: new Date(newSubscription.start_date! * 1000),
+        endDate: new Date(newSubscription.current_period_end * 1000),
+      },
+    });
+
+    // Update user pro status
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isProMember: true,
+        subscriptionStatus: newSubscription.status as SubscriptionStatus,
+        membershipEnds: new Date(newSubscription.current_period_end * 1000),
+      },
+    });
+
+    return {
+      id: newSubscription.id,
+      status: newSubscription.status,
+      currentPeriodStart: new Date(newSubscription.current_period_start * 1000),
+      currentPeriodEnd: new Date(newSubscription.current_period_end * 1000),
+      cancelAtPeriodEnd: newSubscription.cancel_at_period_end,
+      clientSecret: newSubscription.latest_invoice
+        ? (newSubscription.latest_invoice as Stripe.Invoice).payment_intent
+          ? ((newSubscription.latest_invoice as Stripe.Invoice).payment_intent as Stripe.PaymentIntent).client_secret ||
+            undefined
+          : undefined
+        : undefined,
+    };
+  } catch (error: any) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `Failed to reactivate subscription: ${error.message}`);
+  }
+};
+
 // Cancel subscription immediately
 const cancelSubscription = async (userId: string): Promise<void> => {
   const subscription = await prisma.subscription.findFirst({
@@ -367,6 +517,9 @@ const handleWebhook = async (payload: string | Buffer, signature: string): Promi
       break;
 
     case 'customer.subscription.updated':
+      // console.log('customer.s-u :-');
+      // console.log("Handled customer.subscription.updated :- ):- ", event.data.object);
+      
       await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
       break;
 
@@ -383,7 +536,7 @@ const handleWebhook = async (payload: string | Buffer, signature: string): Promi
       break;
 
     default:
-      console.log(`Unhandled event type: ${event.type}`);
+      // console.log(`Unhandled event type: ${event.type}`);
   }
 };
 
@@ -513,6 +666,10 @@ const handleSubscriptionCreated = async (subscription: Stripe.Subscription): Pro
 };
 
 const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Promise<void> => {
+  console.log(`🔄 Processing subscription update for: ${subscription.id}`);
+  console.log(`📊 Status: ${subscription.status}, Cancel at period end: ${subscription.cancel_at_period_end}`);
+  
+  // Update subscription record with all relevant fields
   await prisma.subscription.updateMany({
     where: {
       stripeSubscriptionId: subscription.id,
@@ -526,7 +683,7 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
     },
   });
 
-  // Update user pro status
+  // Get subscription and user details
   const dbSubscription = await prisma.subscription.findFirst({
     where: { stripeSubscriptionId: subscription.id },
     include: { user: true },
@@ -534,13 +691,41 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
 
   if (dbSubscription) {
     const isActive = subscription.status === 'active';
+    const isCancelledAtPeriodEnd = subscription.cancel_at_period_end;
+    
+    // Determine subscription status for user
+    let userSubscriptionStatus: SubscriptionStatus;
+    
+    if (isActive && !isCancelledAtPeriodEnd) {
+      // Active and NOT scheduled for cancellation = ACTIVE
+      userSubscriptionStatus = SubscriptionStatus.ACTIVE;
+      console.log(`✅ Subscription ACTIVE for user: ${dbSubscription.userId}`);
+    } else if (isActive && isCancelledAtPeriodEnd) {
+      // Active but scheduled for cancellation = Still ACTIVE until period ends
+      userSubscriptionStatus = SubscriptionStatus.ACTIVE;
+      console.log(`⏰ Subscription scheduled for cancellation for user: ${dbSubscription.userId}`);
+    } else {
+      // Not active = INACTIVE or CANCELLED
+      userSubscriptionStatus = subscription.status as SubscriptionStatus;
+      console.log(`❌ Subscription ${subscription.status} for user: ${dbSubscription.userId}`);
+    }
+
+    // Update user record
     await prisma.user.update({
       where: { id: dbSubscription.userId },
       data: {
-        isProMember: isActive,
+        isProMember: isActive, // Keep pro access until actually cancelled
+        subscriptionStatus: userSubscriptionStatus,
         membershipEnds: isActive ? new Date(subscription.current_period_end * 1000) : new Date(),
       },
     });
+
+    // Log the action for debugging
+    if (subscription.cancel_at_period_end) {
+      console.log(`📅 User ${dbSubscription.userId} subscription will cancel on: ${new Date(subscription.current_period_end * 1000)}`);
+    } else if (subscription.canceled_at === null && !subscription.cancel_at_period_end) {
+      console.log(`🔄 User ${dbSubscription.userId} subscription has been REACTIVATED`);
+    }
   }
 };
 
@@ -578,6 +763,11 @@ const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Promise<v
 
   const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
 
+  // Check if this is the first invoice (immediate payment)
+  const isFirstInvoice = invoice.billing_reason === 'subscription_create';
+  
+  console.log(`Invoice payment succeeded for subscription ${subscription.id}, isFirstInvoice: ${isFirstInvoice}`);
+
   await prisma.subscription.updateMany({
     where: {
       stripeSubscriptionId: subscription.id,
@@ -589,7 +779,7 @@ const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Promise<v
     },
   });
 
-  // Update user membership
+  // Update user membership - activate immediately upon successful payment
   const dbSubscription = await prisma.subscription.findFirst({
     where: { stripeSubscriptionId: subscription.id },
   });
@@ -599,9 +789,13 @@ const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice): Promise<v
       where: { id: dbSubscription.userId },
       data: {
         isProMember: true,
+        subscriptionStatus: SubscriptionStatus.ACTIVE,
         membershipEnds: new Date(subscription.current_period_end * 1000),
       },
     });
+
+    // Log successful activation
+    console.log(`User ${dbSubscription.userId} subscription activated successfully`);
   }
 };
 
@@ -636,9 +830,11 @@ const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice): Promise<void
 
 export const SubscriptionService = {
   createCheckoutSession,
+  createBillingPortalSession,
   createSubscription,
   getSubscription,
   updateSubscription,
   cancelSubscription,
+  reactivateSubscription,
   handleWebhook,
 };
