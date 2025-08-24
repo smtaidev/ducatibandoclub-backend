@@ -717,6 +717,7 @@ const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Pro
         isProMember: isActive, // Keep pro access until actually cancelled
         subscriptionStatus: userSubscriptionStatus,
         membershipEnds: isActive ? new Date(subscription.current_period_end * 1000) : new Date(),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
       },
     });
 

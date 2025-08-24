@@ -31,6 +31,7 @@ model User {
   Subscription   Subscription[]
 
   isProMember      Boolean  @default(false)
+  cancelAtPeriodEnd Boolean  @default(false)
   isDeleted        Boolean  @default(false)
 
   
