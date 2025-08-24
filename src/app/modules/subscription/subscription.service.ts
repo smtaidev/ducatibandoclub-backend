@@ -45,8 +45,6 @@ const createCheckoutSession = async (
     },
   });
 
-  console.log('Existing Subscription:- ):- ', existingSubscription);
-
   if (existingSubscription) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'User already has an active subscription');
   }
@@ -666,67 +664,112 @@ const handleSubscriptionCreated = async (subscription: Stripe.Subscription): Pro
 };
 
 const handleSubscriptionUpdated = async (subscription: Stripe.Subscription): Promise<void> => {
-  console.log(`🔄 Processing subscription update for: ${subscription.id}`);
-  console.log(`📊 Status: ${subscription.status}, Cancel at period end: ${subscription.cancel_at_period_end}`);
+  // console.log(`🔄 Processing subscription update for: ${subscription.id}`);
   
-  // Update subscription record with all relevant fields
-  await prisma.subscription.updateMany({
-    where: {
-      stripeSubscriptionId: subscription.id,
-    },
-    data: {
-      status: subscription.status as SubscriptionStatus,
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
-    },
-  });
+  try {
+    // Map Stripe status to our enum - same as in handleCheckoutSessionCompleted
+    const mapStripeStatus = (status: string): SubscriptionStatus => {
+      switch (status) {
+        case 'active':
+          return SubscriptionStatus.ACTIVE;
+        case 'canceled':
+        case 'cancelled':
+          return SubscriptionStatus.CANCELLED;
+        case 'incomplete':
+        case 'incomplete_expired':
+        case 'past_due':
+        case 'unpaid':
+        default:
+          return SubscriptionStatus.INACTIVE;
+      }
+    };
 
-  // Get subscription and user details
-  const dbSubscription = await prisma.subscription.findFirst({
-    where: { stripeSubscriptionId: subscription.id },
-    include: { user: true },
-  });
-
-  if (dbSubscription) {
-    const isActive = subscription.status === 'active';
-    const isCancelledAtPeriodEnd = subscription.cancel_at_period_end;
-    
-    // Determine subscription status for user
-    let userSubscriptionStatus: SubscriptionStatus;
-    
-    if (isActive && !isCancelledAtPeriodEnd) {
-      // Active and NOT scheduled for cancellation = ACTIVE
-      userSubscriptionStatus = SubscriptionStatus.ACTIVE;
-      console.log(`✅ Subscription ACTIVE for user: ${dbSubscription.userId}`);
-    } else if (isActive && isCancelledAtPeriodEnd) {
-      // Active but scheduled for cancellation = Still ACTIVE until period ends
-      userSubscriptionStatus = SubscriptionStatus.ACTIVE;
-      console.log(`⏰ Subscription scheduled for cancellation for user: ${dbSubscription.userId}`);
-    } else {
-      // Not active = INACTIVE or CANCELLED
-      userSubscriptionStatus = subscription.status as SubscriptionStatus;
-      console.log(`❌ Subscription ${subscription.status} for user: ${dbSubscription.userId}`);
-    }
-
-    // Update user record
-    await prisma.user.update({
-      where: { id: dbSubscription.userId },
+    const mappedStatus = mapStripeStatus(subscription.status);
+    // console.log(`📋 Mapping Stripe status '${subscription.status}' to '${mappedStatus}'`);
+  
+    // Update subscription record with all relevant fields
+    const result = await prisma.subscription.updateMany({
+      where: {
+        stripeSubscriptionId: subscription.id,
+      },
       data: {
-        isProMember: isActive, // Keep pro access until actually cancelled
-        subscriptionStatus: userSubscriptionStatus,
-        membershipEnds: isActive ? new Date(subscription.current_period_end * 1000) : new Date(),
+        status: mappedStatus,
+        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
       },
     });
 
-    // Log the action for debugging
-    if (subscription.cancel_at_period_end) {
-      console.log(`📅 User ${dbSubscription.userId} subscription will cancel on: ${new Date(subscription.current_period_end * 1000)}`);
-    } else if (subscription.canceled_at === null && !subscription.cancel_at_period_end) {
-      console.log(`🔄 User ${dbSubscription.userId} subscription has been REACTIVATED`);
+    // console.log("✅ Updated subscription records: ", result);
+
+    // Validate that the update was successful
+    if (result.count === 0) {
+      console.error(`⚠️  No subscription found with stripeSubscriptionId: ${subscription.id}`);
+      return;
     }
+
+    // Get subscription and user details
+    const dbSubscription = await prisma.subscription.findFirst({
+      where: { stripeSubscriptionId: subscription.id },
+      include: { user: true },
+    });
+
+    // console.log('✅ DB Subscription found:- ', dbSubscription);
+
+    if (dbSubscription) {
+      const isActive = subscription.status === 'active';
+      const isCancelledAtPeriodEnd = subscription.cancel_at_period_end;
+      
+      // Determine subscription status for user
+      let userSubscriptionStatus: SubscriptionStatus;
+      
+      if (isActive && !isCancelledAtPeriodEnd) {
+        // Active and NOT scheduled for cancellation = ACTIVE
+        userSubscriptionStatus = SubscriptionStatus.ACTIVE;
+        console.log(`✅ Subscription ACTIVE for user: ${dbSubscription.userId}`);
+      } else if (isActive && isCancelledAtPeriodEnd) {
+        // Active but scheduled for cancellation = Still ACTIVE until period ends
+        userSubscriptionStatus = SubscriptionStatus.ACTIVE;
+        console.log(`⏰ Subscription scheduled for cancellation for user: ${dbSubscription.userId}`);
+      } else {
+        // Not active = use mapped status
+        userSubscriptionStatus = mappedStatus;
+        console.log(`❌ Subscription ${subscription.status} (mapped to ${mappedStatus}) for user: ${dbSubscription.userId}`);
+      }
+
+      // Update user record
+      await prisma.user.update({
+        where: { id: dbSubscription.userId },
+        data: {
+          isProMember: isActive, // Keep pro access until actually cancelled
+          subscriptionStatus: userSubscriptionStatus,
+          membershipEnds: isActive ? new Date(subscription.current_period_end * 1000) : new Date(),
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        },
+      });
+
+      // console.log(`📊 Status: ${subscription.status}, Cancel at period end: ${subscription.cancel_at_period_end}`);
+
+      // Log the action for debugging
+      if (subscription.cancel_at_period_end) {
+        console.log(`📅 User ${dbSubscription.userId} subscription will cancel on: ${new Date(subscription.current_period_end * 1000)}`);
+      } else if (subscription.canceled_at === null && !subscription.cancel_at_period_end) {
+        console.log(`🔄 User ${dbSubscription.userId} subscription has been REACTIVATED`);
+      }
+
+      // console.log(`✅ Successfully processed subscription update for user: ${dbSubscription.userId}`);
+    } else {
+      console.error(`⚠️  No database subscription found for stripeSubscriptionId: ${subscription.id}`);
+    }
+  } catch (error: any) {
+    console.error('❌ Error in handleSubscriptionUpdated:', {
+      error: error.message,
+      stack: error.stack,
+      subscriptionId: subscription.id,
+      subscriptionStatus: subscription.status,
+    });
+    // Don't throw the error to prevent webhook failure, but log it for debugging
   }
 };
 
