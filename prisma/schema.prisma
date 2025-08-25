@@ -27,7 +27,7 @@ model User {
   totalRating          Float          @default(0)
   totalRaters          Int            @default(0)
 
-  membershipEnds DateTime?      @updatedAt
+  membershipEnds DateTime?     
   Subscription   Subscription[]
 
   isProMember      Boolean  @default(false)
