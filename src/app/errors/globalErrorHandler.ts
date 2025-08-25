@@ -51,15 +51,29 @@ const GlobalErrorHandler = (
   else if (error instanceof ApiError) {
     statusCode = error?.statusCode;
     message = error.message;
-    errorMessages = error?.message
-      ? [
-          {
-            path: "",
-            message: error?.message,
-          },
-        ]
-      : [];
-  } 
+    
+    // Check if this is a JWT-related error with custom data
+    if (error.errorData && error.errorData.errorCode) {
+      errorMessages = [
+        {
+          path: "",
+          message: error.message,
+          errorCode: error.errorData.errorCode,
+          ...(error.errorData.expiredAt && { expiredAt: error.errorData.expiredAt }),
+          ...(error.errorData.date && { date: error.errorData.date })
+        },
+      ];
+    } else {
+      errorMessages = error?.message
+        ? [
+            {
+              path: "",
+              message: error?.message,
+            },
+          ]
+        : [];
+    }
+  }
   
   // Handle Errors
   else if (error instanceof Error) {

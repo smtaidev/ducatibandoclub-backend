@@ -37,7 +37,7 @@ const verifiedEmail = catchAsync(async (req: Request, res: Response) => {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "none",
-  maxAge: 0 * 0 * 10 * 60 * 1000,  
+  maxAge: 0 * 0 * 30 * 60 * 1000,    
   ...(process.env.NODE_ENV === "production" && { domain: "localhost" }) 
 });
 

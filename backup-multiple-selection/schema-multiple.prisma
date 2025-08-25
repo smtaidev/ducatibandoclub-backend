@@ -65,7 +65,6 @@ model UserStrategy {
   riskToleranceLinks   UserStrategyRiskTolerance[]
   timeframeLinks       UserStrategyTimeframe[]
 
-  @@unique([userId])
   @@map("user_strategies")
 }
 

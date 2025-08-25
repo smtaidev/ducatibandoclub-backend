@@ -15,4 +15,7 @@ export type TGenericErrorResponse = {
 export type IGenericErrorMessage = {
   path: string | number;
   message: string;
+  errorCode?: string;
+  expiredAt?: string;
+  date?: string;
 };
