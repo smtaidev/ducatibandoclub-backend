@@ -2,23 +2,36 @@ import ApiError from '../../errors/ApiError';
 import prisma from '../../lib/prisma';
 
 const createStrategy = async (userId: string, payload: {
-  investmentFocus: string;
-  riskTolerance: string;
-  preferredTimeframe: string;
+  investmentFocus: string[];
+  riskTolerance: string[];
+  preferredTimeframe: string[];
 }) => {
   const { investmentFocus, riskTolerance, preferredTimeframe } = payload;
 
-  // Basic validation - just ensure values are not empty
-  if (!investmentFocus?.trim()) {
-    throw new ApiError(400, 'Investment Focus cannot be empty');
+  // Validate investment focus options
+  const validInvestmentFocus = [
+    'Technology & Innovation',
+    'Sustainability & Green',
+    'Consumer & Lifestyle',
+    'Finance & Money',
+    'Industrials & Infrastructure',
+    'Healthcare & Bio',
+    'Behavioral / Macro Themes',
+  ];
+  if (!investmentFocus.every(focus => validInvestmentFocus.includes(focus))) {
+    throw new ApiError(400, 'Invalid Investment Focus option');
   }
 
-  if (!riskTolerance?.trim()) {
-    throw new ApiError(400, 'Risk Tolerance cannot be empty');
+  // Validate risk tolerance options
+  const validRiskTolerance = ['Conservative', 'Balanced', 'Aggressive'];
+  if (!riskTolerance.every(tolerance => validRiskTolerance.includes(tolerance))) {
+    throw new ApiError(400, 'Invalid Risk Tolerance option');
   }
 
-  if (!preferredTimeframe?.trim()) {
-    throw new ApiError(400, 'Preferred Timeframe cannot be empty');
+  // Validate preferred timeframe options
+  const validPreferredTimeframe = ['Intraday', 'Swing', 'Long-Term'];
+  if (!preferredTimeframe.every(timeframe => validPreferredTimeframe.includes(timeframe))) {
+    throw new ApiError(400, 'Invalid Preferred Timeframe option');
   }
 
   // Start transaction to ensure data consistency
@@ -37,7 +50,7 @@ const createStrategy = async (userId: string, payload: {
     });
 
     if (userStrategy) {
-      // Clear existing relationships for single selection
+      // Clear existing relationships
       await Promise.all([
         transactionClient.userStrategyInvestmentFocus.deleteMany({
           where: { userStrategyId: userStrategy.id },
@@ -56,46 +69,59 @@ const createStrategy = async (userId: string, payload: {
       });
     }
 
-    // Find or create the related records
-    const investmentFocusRecord = await transactionClient.investmentFocus.upsert({
-      where: { name: investmentFocus },
-      update: {},
-      create: { name: investmentFocus },
-    });
+    // Create InvestmentFocus links
+    await Promise.all(
+      investmentFocus.map(async (focus) => {
+        const investmentFocusRecord = await transactionClient.investmentFocus.upsert({
+          where: { name: focus },
+          update: {},
+          create: { name: focus },
+        });
 
-    const riskToleranceRecord = await transactionClient.riskTolerance.upsert({
-      where: { name: riskTolerance },
-      update: {},
-      create: { name: riskTolerance },
-    });
+        await transactionClient.userStrategyInvestmentFocus.create({
+          data: {
+            userStrategyId: userStrategy.id,
+            investmentFocusId: investmentFocusRecord.id,
+          },
+        });
+      })
+    );
 
-    const preferredTimeframeRecord = await transactionClient.preferredTimeframe.upsert({
-      where: { name: preferredTimeframe },
-      update: {},
-      create: { name: preferredTimeframe },
-    });
+    // Create RiskTolerance links
+    await Promise.all(
+      riskTolerance.map(async (tolerance) => {
+        const riskToleranceRecord = await transactionClient.riskTolerance.upsert({
+          where: { name: tolerance },
+          update: {},
+          create: { name: tolerance },
+        });
 
-    // Create single link for each category (enforcing single selection)
-    await Promise.all([
-      transactionClient.userStrategyInvestmentFocus.create({
-        data: {
-          userStrategyId: userStrategy.id,
-          investmentFocusId: investmentFocusRecord.id,
-        },
-      }),
-      transactionClient.userStrategyRiskTolerance.create({
-        data: {
-          userStrategyId: userStrategy.id,
-          riskToleranceId: riskToleranceRecord.id,
-        },
-      }),
-      transactionClient.userStrategyTimeframe.create({
-        data: {
-          userStrategyId: userStrategy.id,
-          preferredTimeframeId: preferredTimeframeRecord.id,
-        },
-      }),
-    ]);
+        await transactionClient.userStrategyRiskTolerance.create({
+          data: {
+            userStrategyId: userStrategy.id,
+            riskToleranceId: riskToleranceRecord.id,
+          },
+        });
+      })
+    );
+
+    // Create PreferredTimeframe links
+    await Promise.all(
+      preferredTimeframe.map(async (timeframe) => {
+        const preferredTimeframeRecord = await transactionClient.preferredTimeframe.upsert({
+          where: { name: timeframe },
+          update: {},
+          create: { name: timeframe },
+        });
+
+        await transactionClient.userStrategyTimeframe.create({
+          data: {
+            userStrategyId: userStrategy.id,
+            preferredTimeframeId: preferredTimeframeRecord.id,
+          },
+        });
+      })
+    );
 
     return {
       id: userStrategy.id,
@@ -135,21 +161,18 @@ const getUserStrategy = async (userId: string) => {
     throw new ApiError(404, 'User strategy not found. Please complete your investment profile first.');
   }
 
-  // Since we're enforcing single selection, take the first (and only) item from each link
-  const investmentFocus = userStrategy.investmentFocusLinks[0]?.investmentFocus.name;
-  const riskTolerance = userStrategy.riskToleranceLinks[0]?.riskTolerance.name;
-  const preferredTimeframe = userStrategy.timeframeLinks[0]?.preferredTimeframe.name;
-
-  if (!investmentFocus || !riskTolerance || !preferredTimeframe) {
-    throw new ApiError(400, 'Incomplete strategy data. Please complete your investment profile.');
-  }
-
   return {
     id: userStrategy.id,
     userId: userStrategy.userId,
-    investmentFocus,
-    riskTolerance,
-    preferredTimeframe,
+    riskTolerance: userStrategy.riskToleranceLinks.map(
+      (link) => link.riskTolerance.name
+    ),
+    preferredTimeframe: userStrategy.timeframeLinks.map(
+      (link) => link.preferredTimeframe.name
+    ),
+    investmentFocus: userStrategy.investmentFocusLinks.map(
+      (link) => link.investmentFocus.name
+    ),
     createdAt: userStrategy.createdAt,
     updatedAt: userStrategy.updatedAt,
   };
@@ -220,52 +243,58 @@ const generateStockSuggestions = (strategy: any) => {
     ],
   };
 
-  // Default stocks for unknown investment focus
-  const defaultStocks = [
-    { symbol: 'SPY', name: 'SPDR S&P 500 ETF', sector: 'ETF', marketCap: 'Large', volatility: 'Medium' },
-    { symbol: 'VTI', name: 'Vanguard Total Stock Market', sector: 'ETF', marketCap: 'Large', volatility: 'Medium' },
-    { symbol: 'QQQ', name: 'Invesco QQQ Trust', sector: 'ETF', marketCap: 'Large', volatility: 'Medium' },
-  ];
+  // Get stocks based on investment focus
+  let candidateStocks: any[] = [];
+  investmentFocus.forEach((focus: string) => {
+    if (stockDatabase[focus as keyof typeof stockDatabase]) {
+      candidateStocks = candidateStocks.concat(stockDatabase[focus as keyof typeof stockDatabase]);
+    }
+  });
 
-  // Get stocks based on investment focus (use default if not found)
-  let candidateStocks: any[] = stockDatabase[investmentFocus as keyof typeof stockDatabase] || defaultStocks;
-
-  // Filter based on risk tolerance (flexible matching)
+  // Filter based on risk tolerance (considering all selected risk tolerances)
   let filteredStocks = candidateStocks;
-  const riskLower = riskTolerance.toLowerCase();
-  if (riskLower.includes('conservative') || riskLower.includes('low')) {
-    filteredStocks = candidateStocks.filter(stock => stock.volatility === 'Low' || stock.volatility === 'Medium');
-  } else if (riskLower.includes('aggressive') || riskLower.includes('high')) {
-    filteredStocks = candidateStocks.filter(stock => stock.volatility === 'Medium' || stock.volatility === 'High');
-  } else {
-    filteredStocks = candidateStocks; // Default to all for balanced/unknown
+  if (riskTolerance.length > 0) {
+    const allowedVolatilities = new Set<string>();
+    
+    riskTolerance.forEach((tolerance: string) => {
+      if (tolerance === 'Conservative') {
+        allowedVolatilities.add('Low');
+        allowedVolatilities.add('Medium');
+      } else if (tolerance === 'Balanced') {
+        allowedVolatilities.add('Low');
+        allowedVolatilities.add('Medium');
+        allowedVolatilities.add('High');
+      } else if (tolerance === 'Aggressive') {
+        allowedVolatilities.add('Medium');
+        allowedVolatilities.add('High');
+      }
+    });
+    
+    filteredStocks = candidateStocks.filter(stock => 
+      allowedVolatilities.has(stock.volatility)
+    );
   }
 
-  // Add timeframe-specific recommendations (flexible matching)
-  const timeframeLower = preferredTimeframe.toLowerCase();
-  let timeframeAdvice;
-  
-  if (timeframeLower.includes('intraday') || timeframeLower.includes('day') || timeframeLower.includes('short')) {
-    timeframeAdvice = {
+  // Add timeframe-specific recommendations
+  const timeframeAdvice = {
+    'Intraday': {
       recommendation: 'Focus on high-volume, liquid stocks with technical patterns',
       advice: 'Consider stocks with daily trading volume > 10M shares and clear support/resistance levels',
-    };
-  } else if (timeframeLower.includes('swing') || timeframeLower.includes('medium')) {
-    timeframeAdvice = {
+    },
+    'Swing': {
       recommendation: 'Look for stocks with momentum and upcoming catalysts',
       advice: 'Target stocks with earnings announcements, product launches, or sector rotation opportunities',
-    };
-  } else if (timeframeLower.includes('long') || timeframeLower.includes('term')) {
-    timeframeAdvice = {
+    },
+    'Long-Term': {
       recommendation: 'Focus on fundamentally strong companies with competitive advantages',
       advice: 'Prioritize companies with strong balance sheets, consistent growth, and market leadership',
-    };
-  } else {
-    timeframeAdvice = {
-      recommendation: `Custom timeframe: ${preferredTimeframe}`,
-      advice: 'Consider your specific investment horizon and adjust position sizes accordingly',
-    };
-  }
+    },
+  };
+
+  // Combine advice for multiple timeframes
+  const combinedTimeframeAdvice = preferredTimeframe.map((timeframe: string) => 
+    timeframeAdvice[timeframe as keyof typeof timeframeAdvice]
+  ).filter(Boolean);
 
   // Remove duplicates and limit to top 10
   const uniqueStocks = Array.from(new Map(filteredStocks.map(stock => [stock.symbol, stock])).values())
@@ -276,26 +305,36 @@ const generateStockSuggestions = (strategy: any) => {
     strategy: {
       riskLevel: riskTolerance,
       timeframe: preferredTimeframe,
-      focusArea: investmentFocus,
+      focusAreas: investmentFocus,
     },
-    timeframeAdvice,
+    timeframeAdvice: combinedTimeframeAdvice,
     riskWarning: getRiskWarning(riskTolerance),
     diversificationTip: getDiversificationTip(investmentFocus),
   };
 };
 
-const getRiskWarning = (riskTolerance: string) => {
+const getRiskWarning = (riskTolerance: string[]) => {
   const warnings = {
     'Conservative': 'Remember that even conservative investments carry some risk. Consider diversifying across asset classes.',
     'Balanced': 'Balance is key - ensure your portfolio includes both growth and stable investments.',
     'Aggressive': 'High-risk investments can offer high returns but also significant losses. Only invest what you can afford to lose.',
   };
-  return warnings[riskTolerance as keyof typeof warnings] || 'Always do your own research before investing.';
+  
+  if (riskTolerance.length === 1) {
+    return warnings[riskTolerance[0] as keyof typeof warnings] || 'Always do your own research before investing.';
+  } else {
+    return 'You have selected multiple risk levels. Ensure your portfolio allocation matches your risk comfort across different investment categories. Always do your own research before investing.';
+  }
 };
 
-const getDiversificationTip = (investmentFocus: string) => {
-  // Since we have single selection, always recommend diversification
-  return `You've selected ${investmentFocus} as your focus area. Consider diversifying into additional sectors to reduce concentration risk and balance your portfolio.`;
+const getDiversificationTip = (investmentFocus: string[]) => {
+  if (investmentFocus.length === 1) {
+    return 'Consider diversifying into additional sectors to reduce concentration risk.';
+  } else if (investmentFocus.length > 4) {
+    return 'You have diverse interests - consider focusing on 3-4 key areas for better portfolio management.';
+  } else {
+    return 'Good diversification across sectors. Make sure to also diversify within each sector.';
+  }
 };
 
 export const StrategyServices = {

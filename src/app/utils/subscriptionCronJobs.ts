@@ -155,6 +155,7 @@ const handleExpiredSubscriptions = async () => {
 
           if (stripeSubscription.status !== 'active') {
             const mappedStatus = mapStripeStatusToSubscriptionStatus(stripeSubscription.status);
+            // console.log("Mapped status:- :)-", mappedStatus);
             
             await prisma.$transaction(async (tx) => {
               await tx.subscription.update({
