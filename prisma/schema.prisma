@@ -19,18 +19,19 @@ model User {
   fcmToken             String?
   isEmailVerified      Boolean        @default(false)
   isVerified           Boolean        @default(false)
-  isSocial             Boolean        @default(false)
   role                 Role           @default(USER)
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   status               UserStatus     @default(INACTIVE)
+  subscriptionStatus   SubscriptionStatus @default(INACTIVE)
   totalRating          Float          @default(0)
   totalRaters          Int            @default(0)
 
-  membershipEnds DateTime?      @updatedAt
+  membershipEnds DateTime?     
   Subscription   Subscription[]
 
   isProMember      Boolean  @default(false)
+  cancelAtPeriodEnd Boolean  @default(false)
   isDeleted        Boolean  @default(false)
 
   
@@ -53,22 +54,6 @@ enum UserStatus {
   AVAILABLE
   UNAVAILABLE
 }
-
-
-// model User {
-//   id                String         @id @default(auto()) @map("_id") @db.ObjectId
-//   name              String?
-//   email             String         @unique
-//   password          String?
-//   isEmailVerified   Boolean        @default(false)
-//   subscriptionStatus SubscriptionStatus @default(INACTIVE)
-//   createdAt         DateTime       @default(now())
-//   updatedAt         DateTime       @updatedAt
-//   userStrategy      UserStrategy[]
-//   subscriptions     Subscription[]
-
-//   @@map("users")
-// }
 
 model UserStrategy {
   id                   String               @id @default(auto()) @map("_id") @db.ObjectId
@@ -121,14 +106,14 @@ model PreferredTimeframe {
 }
 
 model StockMarketTime {
-  id           String   @id @default(uuid()) @map("_id")
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
   trackingTime DateTime @default(now())
 
   @@map("stock_market_time")
 }
 
 model MarketNews {
-  id        String @id @default(uuid()) @map("_id")
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
   title     String
   link      String
   published String
@@ -139,17 +124,17 @@ model MarketNews {
 }
 
 model Sectors {
-  id          String @id @default(uuid()) @map("_id")
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
   sectorsName String
 
   @@map("sectors")
 }
 
 model StockCategory {
-  id           String @id @default(uuid()) @map("_id")
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
   category     String
   last_updated String
-  dij50Id      String @unique
+  dij50Id      String @unique @db.ObjectId
   dij50        Dij50  @relation(fields: [dij50Id], references: [id])
   stocks       Json
 
@@ -157,7 +142,7 @@ model StockCategory {
 }
 
 model Dij50 {
-  id              String @id @default(uuid()) @map("_id")
+  id              String @id @default(auto()) @map("_id") @db.ObjectId
   additionalProp1 Float
   additionalProp2 Float
   additionalProp3 Float
@@ -168,18 +153,18 @@ model Dij50 {
 }
 
 model SectorStock {
-  id     String  @id @default(uuid()) @map("_id")
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
   sector String
   stocks Stock[] // 1 sector → many stocks
 }
 
 model Stock {
-  id            String      @id @default(uuid()) @map("_id")
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
   ticker        String
   name          String
   symbol        String
   sectorStock   SectorStock @relation(fields: [sectorStockId], references: [id])
-  sectorStockId String
+  sectorStockId String      @db.ObjectId
 }
 
 model OTP {
@@ -195,16 +180,28 @@ model OTP {
 }
 
 model Subscription {
-  id        String               @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String               @db.ObjectId
-  status    SubscriptionStatus   @default(ACTIVE)
-  startDate DateTime             @default(now())
-  endDate   DateTime?            // Calculated based on plan type (e.g., +1 month for MONTHLY)
-  plan      SubscriptionPlanType @default(MONTHLY)
-  createdAt DateTime             @default(now())
-  updatedAt DateTime             @updatedAt
-  user      User                 @relation(fields: [userId], references: [id])
+  id                    String               @id @default(auto()) @map("_id") @db.ObjectId
+  userId                String               @db.ObjectId
+  stripeCustomerId      String?              // Stripe customer ID
+  stripeSubscriptionId  String?              // Stripe subscription ID
+  stripePriceId         String?              // Stripe price ID
+  status                SubscriptionStatus   @default(ACTIVE)
+  startDate             DateTime             @default(now())
+  endDate               DateTime?            // Calculated based on plan type (e.g., +1 month for MONTHLY)
+  currentPeriodStart    DateTime?            // Current billing period start
+  currentPeriodEnd      DateTime?            // Current billing period end
+  cancelAtPeriodEnd     Boolean              @default(false)
+  canceledAt            DateTime?            // When subscription was canceled
+  plan                  SubscriptionPlanType @default(MONTHLY)
+  amount                Float                @default(20.00) // Monthly amount in USD
+  currency              String               @default("usd")
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  user                  User                 @relation(fields: [userId], references: [id])
 
+  @@unique([stripeSubscriptionId])
+  @@index([userId, status])
+  @@index([status, currentPeriodEnd])
   @@map("subscriptions")
 }
 
@@ -222,461 +219,3 @@ enum SubscriptionPlanType {
   FREE_TRIAL
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// model User {
-//   id                   String         @id @default(auto()) @map("_id") @db.ObjectId
-//   name                 String?
-//   phoneNumber          String?
-//   email                String         @unique
-//   password             String?
-//   // location             String?
-//   image                String?
-//   fcmToken             String?
-//   isEmailVerified      Boolean        @default(false)
-//   isVerified           Boolean        @default(false)
-//   isSocial             Boolean        @default(false)
-//   role                 Role           @default(USER)
-//   createdAt            DateTime       @default(now())
-//   updatedAt            DateTime       @updatedAt
-//   status               UserStatus     @default(INACTIVE)
-//   notificationsReceive Notification[] @relation("receiver")
-//   notificationsSend    Notification[] @relation("sender")
-//   totalRating          Float          @default(0)
-//   totalRaters          Int            @default(0)
-
-//   message        Message[]      @relation("UserMessages")
-//   conversations1 Conversation[] @relation("User1Conversations")
-//   conversations2 Conversation[] @relation("User2Conversations")
-//   Conversation   Conversation[]
-//   membershipEnds DateTime?      @updatedAt
-//   storeAddress   StoreAddress[] @relation("StoreAddressUser")
-//   product        Product[]
-//   Subscription   Subscription[]
-
-//   isProMember      Boolean  @default(false)
-//   isDeleted        Boolean  @default(false)
-//   offer            Offer[]
-//   reviewsByBuyer   Review[] @relation("buyer")
-//   reviewsForSeller Review[] @relation("seller")
-
-//   @@map("users")
-// }
-
-// model StockMarketTime {
-//   id           String   @id @default(uuid()) @map("_id")
-//   trackingTime DateTime @default(now())
-
-//   @@map("stock_market_time")
-// }
-
-// model MarketNews {
-//   id        String @id @default(uuid()) @map("_id")
-//   title     String
-//   link      String
-//   published String
-//   source    String
-//   content   String
-
-//   @@map("market_news")
-// }
-
-// model Sectors {
-//   id          String @id @default(uuid()) @map("_id")
-//   sectorsName String
-
-//   @@map("sectors")
-// }
-
-// model StockCategory {
-//   id           String @id @default(uuid()) @map("_id")
-//   category     String
-//   // lastUpdated  DateTime @map("last_updated")
-//   last_updated String
-//   dij50Id      String @unique
-//   dij50        Dij50  @relation(fields: [dij50Id], references: [id])
-//   stocks       Json
-
-//   @@map("stock_category")
-// }
-
-// model Dij50 {
-//   id              String @id @default(uuid()) @map("_id")
-//   additionalProp1 Float
-//   additionalProp2 Float
-//   additionalProp3 Float
-
-//   stocks StockCategory?
-
-//   @@map("dij50")
-// }
-
-// // model SectorStock {
-// //   id               String  @id @default(uuid()) @map("_id")
-// //   sector  String
-// //   stocks  Stock[]  // One-to-many relation with Stock
-// // }
-
-// // model Stock {
-// //   id      String  @id @default(uuid()) @map("_id")
-// //   ticker  String
-// //   name    String
-// //   symbol  String
-
-// //   sectorId String
-// //   sector   SectorStock @relation(fields: [sectorId], references: [id])
-// // }
-
-// model SectorStock {
-//   id     String  @id @default(uuid()) @map("_id")
-//   sector String
-//   stocks Stock[] // 1 sector → many stocks
-// }
-
-// model Stock {
-//   id            String      @id @default(uuid()) @map("_id")
-//   ticker        String
-//   name          String
-//   symbol        String
-//   sectorStock   SectorStock @relation(fields: [sectorStockId], references: [id])
-//   sectorStockId String
-// }
-
-// // model Stock {
-// //   id               String  @id @default(uuid()) @map("_id")
-// //   additionalProp1   String
-// //   additionalProp2   String
-// //   additionalProp3   String
-
-// //   sectorId          String
-// //   sector            SectorStock  @relation(fields: [sectorId], references: [id])
-// // }
-
-// enum Role {
-//   ADMIN
-//   USER  
-// }
-
-// enum UserStatus {
-//   PENDING
-//   ACTIVE
-//   INACTIVE
-//   BLOCKED
-//   AVAILABLE
-//   UNAVAILABLE
-// }
-
-// enum Currency {
-//   LYD
-//   USD
-//   EUR
-//   GBP
-// }
-
-// enum Language {
-//   EN
-//   AR
-//   FR
-// }
-
-// enum SubscriptionStatus {
-//   ACTIVE
-//   INACTIVE
-//   CANCELLED
-// }
-
-// enum SubscriptionPlanType {
-//   MONTHLY
-//   YEARLY
-//   FREE_TRIAL
-// }
-
-// model OTP {
-//   id      String @id @default(auto()) @map("_id") @db.ObjectId
-//   userId  String @db.ObjectId
-//   otpCode String
-
-//   expiry     DateTime
-//   created_at DateTime @default(now())
-
-//   @@unique([userId, otpCode])
-//   @@map("otp")
-// }
-
-// model StoreAddress {
-//   id            String        @id @default(auto()) @map("_id") @db.ObjectId
-//   businessName  String
-//   slug          String        @unique
-//   storeCategory StoreCategory
-//   userId        String        @db.ObjectId
-//   address       String
-//   latitude      Float
-//   longitude     Float
-//   createdAt     DateTime      @default(now())
-//   updatedAt     DateTime      @updatedAt
-//   user          User          @relation("StoreAddressUser", fields: [userId], references: [id])
-
-//   @@map("store_addresses")
-// }
-
-// enum StoreCategory {
-//   ELECTRONICS
-//   FOOD_GROCERIES
-//   CLOTHING_SHOES
-//   HOME_LIVING
-//   HEALTH_BEAUTY
-//   SPORTS_OUTDOORS
-//   CARS_SPARE_PARTS
-//   CONSTRUCTION_HARDWARE
-//   PHARMACY_MEDICAL
-//   LOGISTICS_SERVICES
-// }
-
-// model Product {
-//   id           String        @id @default(auto()) @map("_id") @db.ObjectId
-//   name         String
-//   brandName    String?
-//   category     StoreCategory
-//   description  String
-//   images       Json[]
-//   distance     Float         @default(0)
-//   address      String
-//   latitude     Float
-//   longitude    Float
-//   buyerId      String        @db.ObjectId
-//   createdAt    DateTime      @default(now())
-//   updatedAt    DateTime      @updatedAt
-//   isDeleted    Boolean       @default(false)
-//   isPostClosed Boolean       @default(false)
-
-//   buyer  User    @relation(fields: [buyerId], references: [id])
-//   offers Offer[]
-
-//   @@map("products")
-// }
-
-// model Offer {
-//   id        String @id @default(auto()) @map("_id") @db.ObjectId
-//   productId String @db.ObjectId
-
-//   offerDetail String
-//   isSameBrand Boolean @default(true)
-
-//   sellerId String @map("sellerId") @db.ObjectId
-
-//   seller  User    @relation(fields: [sellerId], references: [id])
-//   product Product @relation(fields: [productId], references: [id])
-
-//   @@unique([productId, sellerId])
-//   @@map("offers")
-// }
-
-// model Review {
-//   id       String  @id @default(auto()) @map("_id") @db.ObjectId
-//   sellerId String  @db.ObjectId
-//   buyerId  String  @db.ObjectId
-//   rating   Int
-//   feedBack String?
-
-//   buyer  User @relation("buyer", fields: [buyerId], references: [id])
-//   seller User @relation("seller", fields: [sellerId], references: [id])
-
-//   @@unique([sellerId, buyerId])
-//   @@map("reviews")
-// }
-
-// model Notification {
-//   id         String   @id @default(auto()) @map("_id") @db.ObjectId
-//   receiverId String   @db.ObjectId
-//   senderId   String?  @db.ObjectId
-//   title      String
-//   message    String
-//   body       String
-//   goTo       String?
-//   type       String?
-//   createdAt  DateTime @default(now())
-//   updatedAt  DateTime @updatedAt
-//   receiver   User     @relation(fields: [receiverId], references: [id], name: "receiver")
-//   sender     User?    @relation(fields: [senderId], references: [id], name: "sender")
-//   content    String?
-//   isRead     Boolean  @default(false)
-
-//   @@map("notifications")
-// }
-
-// model Conversation {
-//   id        String    @id @default(auto()) @map("_id") @db.ObjectId
-//   user1Id   String    @db.ObjectId
-//   user2Id   String    @db.ObjectId
-//   messages  Message[] @relation("ConversationMessages")
-//   createdAt DateTime  @default(now())
-//   updatedAt DateTime  @updatedAt
-
-//   // Relationships
-//   user1 User @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
-//   user2 User @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
-
-//   userId String? @db.ObjectId
-//   User   User?   @relation(fields: [userId], references: [id])
-
-//   @@unique([user1Id, user2Id])
-//   @@map("conversations")
-// }
-
-// model Message {
-//   id             String       @id @default(auto()) @map("_id") @db.ObjectId
-//   conversationId String       @db.ObjectId
-//   senderId       String       @db.ObjectId
-//   receiverId     String       @db.ObjectId
-//   content        String?
-//   file           String?
-//   isRead         Boolean      @default(false)
-//   createdAt      DateTime     @default(now())
-//   updatedAt      DateTime     @updatedAt
-//   // Relationships
-//   sender         User         @relation("UserMessages", fields: [senderId], references: [id])
-//   conversation   Conversation @relation("ConversationMessages", fields: [conversationId], references: [id])
-
-//   @@map("messages")
-// }
-
-// model Subscription {
-//   id        String               @id @default(auto()) @map("_id") @db.ObjectId
-//   sellerId  String               @db.ObjectId
-//   status    SubscriptionStatus   @default(ACTIVE)
-//   startDate DateTime             @default(now())
-//   endDate   DateTime? // Calculate based on subscription type
-//   plan      SubscriptionPlanType @default(MONTHLY)
-//   createdAt DateTime             @default(now())
-//   updatedAt DateTime             @updatedAt
-//   seller    User                 @relation(fields: [sellerId], references: [id])
-
-//   @@map("subscriptions")
-// }
-
-
-
-// model UserStrategy {
-//   id                   String               @id @default(auto()) @map("_id") @db.ObjectId
-//   userId               String
-
-//   riskToleranceId      String               @db.ObjectId
-//   riskTolerance        RiskTolerance        @relation(fields: [riskToleranceId], references: [id])
-
-//   preferredTimeframeId String               @db.ObjectId
-//   preferredTimeframe   PreferredTimeframe   @relation(fields: [preferredTimeframeId], references: [id])
-
-//   createdAt            DateTime             @default(now())
-//   updatedAt            DateTime             @updatedAt
-
-//   investmentFocusLinks UserStrategyInvestmentFocus[]
-// }
-
-// model InvestmentFocus {
-//   id                   String                      @id @default(auto()) @map("_id") @db.ObjectId
-//   name                 String                      @unique
-
-//   userStrategyLinks    UserStrategyInvestmentFocus[]
-// }
-
-// model UserStrategyInvestmentFocus {
-//   id                 String         @id @default(auto()) @map("_id") @db.ObjectId
-//   userStrategyId     String         @db.ObjectId
-//   userStrategy       UserStrategy   @relation(fields: [userStrategyId], references: [id])
-//   investmentFocusId  String         @db.ObjectId
-//   investmentFocus    InvestmentFocus @relation(fields: [investmentFocusId], references: [id])
-
-//   @@unique([userStrategyId, investmentFocusId])
-// }
-
-// model RiskTolerance {
-//   id     String         @id @default(auto()) @map("_id") @db.ObjectId
-//   name   String         @unique
-//   users  UserStrategy[] @relation()
-// }
-
-// model PreferredTimeframe {
-//   id     String         @id @default(auto()) @map("_id") @db.ObjectId
-//   name   String         @unique
-//   users  UserStrategy[] @relation()
-// }

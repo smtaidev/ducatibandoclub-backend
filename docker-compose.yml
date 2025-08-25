@@ -1,0 +1,40 @@
+services:
+
+
+  jupyter-js:
+      image: liuderchi/jupyterlab-ijavascript
+      ports:
+        - '8888:8888'
+      volumes:
+        # - ./node_modules:/home/node/notebooks/node_modules
+        - ./:/home/node/notebooks/
+      restart: unless-stopped
+      working_dir: /home/node/notebooks
+      command: jupyter lab --LabApp.token='' --LabApp.password='' --ip=0.0.0.0 --allow-root
+      # http://localhost:8888
+
+
+
+  # postgres-test:
+  #   image: postgres:16.8-alpine
+  #   container_name: postgres-test
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     POSTGRES_USER: testuser
+  #     POSTGRES_PASSWORD: testpassword
+  #     POSTGRES_DB: testdb
+  #   tmpfs:
+  #     - /var/lib/postgresql/data:rw
+  #   command:
+  #     [
+  #       "postgres",
+  #       "-c",
+  #       "fsync=off",
+  #       "-c",
+  #       "full_page_writes=off",
+  #       "-c",
+  #       "synchronous_commit=off",
+  #     ]
+  #   restart: "no"
+  #   # url = postgres://testuser:testpassword@localhost:5432/testdb

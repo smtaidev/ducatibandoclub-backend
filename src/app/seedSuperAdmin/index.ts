@@ -1,44 +1,45 @@
-import { Role, UserStatus } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
-import prisma from '../lib/prisma';
-import config from '../../config';
+// import { Role, UserStatus } from '@prisma/client';
+// import * as bcrypt from 'bcrypt';
+// import prisma from '../lib/prisma';
+// import config from '../../config';
 
 
-const superAdminData = {
-  name: 'Super Admin',
-  email: 'admin@gmail.com',
-  password: 'password1',
-  role: Role.SUPERADMIN,
-  status:  UserStatus.ACTIVE,
-  isVerified: true
-};
+// const adminData = {
+//   name: 'Admin',
+//   email: 'admin@gmail.com',
+//   password: 'password1',
+//   role: Role.ADMIN,
+//   status: UserStatus.ACTIVE,
+//   isVerified: true
+// };
 
-const seedSuperAdmin = async () => {
-  try {
-    // Check if a super admin already exists
-    const isSuperAdminExists = await prisma.user.findFirst({
-      where: {
-        role: Role.SUPERADMIN,
-      },
-    });
+// const seedAdmin = async () => {
+//   try {
+//     // Check if an admin already exists
+//     const isAdminExists = await prisma.user.findFirst({
+//       where: {
+//         role: Role.ADMIN,
+//         email: 'admin@gmail.com'
+//       },
+//     });
 
-    // If not, create one
-    if (!isSuperAdminExists) {
-      superAdminData.password = await bcrypt.hash(
-        config.super_admin_password as string,
-        Number(config.bcrypt_salt_rounds) || 12
-      );
-      await prisma.user.create({
-        data: superAdminData,
-      });
-      console.log('Super Admin created successfully.');
-    } else {
-      return;
-      //   console.log("Super Admin already exists.");
-    }
-  } catch (error) {
-    console.error('Error seeding Super Admin:', error);
-  }
-};
+//     // If not, create one
+//     if (!isAdminExists) {
+//       adminData.password = await bcrypt.hash(
+//         config.super_admin_password as string,
+//         Number(config.bcrypt_salt_rounds) || 12
+//       );
+//       await prisma.user.create({
+//         data: adminData,
+//       });
+//       console.log('Admin created successfully.');
+//     } else {
+//       return;
+//       //   console.log("Admin already exists.");
+//     }
+//   } catch (error) {
+//     console.error('Error seeding Admin:', error);
+//   }
+// };
 
-export default seedSuperAdmin;
+// export default seedAdmin;

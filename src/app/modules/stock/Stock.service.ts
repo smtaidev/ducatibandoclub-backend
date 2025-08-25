@@ -50,6 +50,7 @@ const allSuggestStocks = async () => {
         topStocks,
         sectorStock
     }
+    
     const result = await fetch(`http://172.252.13.69:8010/stocks/suggestions`, {
         method: 'POST',
         headers: {
@@ -57,6 +58,8 @@ const allSuggestStocks = async () => {
         },
         body: JSON.stringify(mergedData)
     });
+
+   
 
     if (!result.ok) {
         throw new Error("Failed to send suggestions data");

@@ -3,9 +3,11 @@ import { Request, Response } from "express";
 import catchAsync from "../../helpers/catchAsync";
 import sendResponse from "../../helpers/sendResponse";
 import { AuthServices } from "./auth.service";
+import config from "../../../config";
 
 const signUpOrLogin = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthServices.signUpOrLogin(req.body);
+
   if (result.statusCode) {
     return sendResponse(res, {
       statusCode: result.statusCode,
@@ -23,6 +25,22 @@ const signUpOrLogin = catchAsync(async (req: Request, res: Response) => {
 const verifiedEmail = catchAsync(async (req: Request, res: Response) => {
   const { userId, otpCode } = req.body;
   const result = await AuthServices.verifyEmail(userId, { otpCode });
+
+  //  res.cookie('accessToken', result.accessToken, {
+  //   httpOnly: false,
+  //   secure: false,
+  //   sameSite: 'none',
+  //   maxAge: 24 * 60 * 60 * 1000, // 1 day
+  // })
+
+  res.cookie("accessToken", result.accessToken, {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "none",
+  maxAge: 0 * 0 * 10 * 60 * 1000,  
+  ...(process.env.NODE_ENV === "production" && { domain: "localhost" }) 
+});
+
   sendResponse(res, {
     statusCode: httpStatus.OK,
     message: 'Email verified successfully',
@@ -41,7 +59,14 @@ const resendOtp = catchAsync(async (req: Request, res: Response) => {
 });
 
 const setPassword = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const userId = req.user?.id;
+  if (!userId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.UNAUTHORIZED,
+      message: 'User not authenticated',
+      data: null,
+    });
+  }
   const { password } = req.body;
   const result = await AuthServices.setPassword(userId, password);
   sendResponse(res, {
@@ -52,12 +77,134 @@ const setPassword = catchAsync(async (req: Request, res: Response) => {
 });
 
 const changePassword = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const userId = req.user?.id;
+  if (!userId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.UNAUTHORIZED,
+      message: 'User not authenticated',
+      data: null,
+    });
+  }
   const { password } = req.body;
   const result = await AuthServices.changePassword(userId, { password });
   sendResponse(res, {
     statusCode: httpStatus.OK,
     message: 'Password changed successfully',
+    data: result,
+  });
+});
+
+const logout = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.UNAUTHORIZED,
+      message: 'User not authenticated',
+      data: null,
+    });
+  }
+  
+  const result = await AuthServices.logout(userId);
+  
+  // Clear the access token cookie if it exists
+  res.clearCookie('accessToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: true,
+  });
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'Logout successful',
+    data: result,
+  });
+});
+
+const updateProfile = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.UNAUTHORIZED,
+      message: 'User not authenticated',
+      data: null,
+    });
+  }
+  
+  const result = await AuthServices.updateProfile(userId, req.body);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'Profile updated successfully',
+    data: result,
+  });
+});
+
+const getMe = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.UNAUTHORIZED,
+      message: 'User not authenticated',
+      data: null,
+    });
+  }
+  
+  const result = await AuthServices.getMe(userId);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'User profile retrieved successfully',
+    data: result,
+  });
+});
+
+const passwordLogin = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthServices.passwordLogin(req.body);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'User logged in successfully',
+    data: result,
+  });
+});
+
+const forgotPassword = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthServices.forgotPassword(req.body);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'Password reset OTP sent to your email',
+    data: result,
+  });
+});
+
+const verifyResetOtp = catchAsync(async (req: Request, res: Response) => {
+  const { userId, otpCode } = req.body;
+  const result = await AuthServices.verifyResetOtp(userId, { otpCode });
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'Reset OTP verified successfully',
+    data: result,
+  });
+});
+
+const resetPassword = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.UNAUTHORIZED,
+      message: 'Reset token required',
+      data: null,
+    });
+  }
+  
+  const { password } = req.body;
+  const result = await AuthServices.resetPassword(userId, password);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: 'Password reset successfully',
     data: result,
   });
 });
@@ -68,197 +215,15 @@ export const AuthControllers = {
   resendOtp,
   setPassword,
   changePassword,
+  logout,
+  updateProfile,
+  getMe,
+  passwordLogin,
+  forgotPassword,
+  verifyResetOtp,
+  resetPassword,
 };
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-
-import httpStatus from "http-status";
-
-import sendResponse from "../../helpers/sendResponse";
-import { AuthServices } from "./auth.service";
-import { Request, Response } from "express";
-import catchAsync from "../../helpers/catchAsync";
-
-const createAccount = catchAsync(async (req, res) => {
-
-  const host = req.header('host') || '';
-
-  const result = await AuthServices.createAccount(req.body);
-  sendResponse(res, {
-    statusCode: httpStatus.CREATED,
-    message: 'verify your otp code',
-    data: result,
-  });
-});
-
-const verifiedEmail = catchAsync(async (req, res) => {
-  const { userId, otpCode, type } = req.body
-
-  const result: any = await AuthServices.verifyEmail(userId, { otpCode, type });
-  if (result.statusCode) {
-    const { statusCode, message, ...data } = result
-    return sendResponse(res, {
-      statusCode,
-      message,
-      data: data,
-    });
-  }
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    message: 'OTP verified successfully',
-    data: result,
-  });
-});
-
-const loginUser = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthServices.loginUserFromDB(req.body);
-
-  if (result.statusCode) {
-    const { statusCode, message, ...data } = result
-    return sendResponse(res, {
-      statusCode,
-      message,
-      data: data,
-    });
-
-  }
-
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    message: "User logged in successfully",
-    data: result,
-  });
-});
-const adminLoginUser = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthServices.adminLoginUserFromDB(req.body);
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    message: "User logged in successfully",
-    data: result,
-  });
-});
-
-
-const forgotPassword = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthServices.forgotPassword(req.body);
-
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    message: "An secret number has been send",
-    data: result,
-  });
-});
-
-const verifyOtp = catchAsync(async (req, res) => {
-  const result: any = await AuthServices.verifyOtp(req.body);
-  console.log(result.statusCode);
-  if (result.statusCode) {
-    const { statusCode, message, ...data } = result
-    return sendResponse(res, {
-      statusCode,
-      message,
-      data: data,
-    });
-  }
-
-
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    message: 'OTP verified successfully please reset your password',
-    data: result,
-  });
-});
-
-const resetPassword = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id
-  const newPassword = req.body.newPassword;
-  const result = await AuthServices.resetPassword(userId, newPassword);
-
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    message: "Password Reset successfully please login",
-    data: result,
-  });
-});
-const changePassword = catchAsync(async (req, res) => {
-  const userId: string = req.user.id;
-  const newPassword: string = req.body.password;
-  const result = await AuthServices.changePassword(userId, { password: newPassword });
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    message: 'password changed successfully',
-    data: result,
-  });
-});
-const resendOtp = catchAsync(async (req, res) => {
-  const userId = req.body.userId
-
-  const result: any = await AuthServices.resendOtp(userId);
-
-
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    message: 'OTP verified successfully',
-    data: result,
-  });
-});
-
-export const AuthControllers = {
-  createAccount,
-  loginUser,
-  forgotPassword, resetPassword, changePassword,
-  verifiedEmail,
-  adminLoginUser, resendOtp
-
-
-};
-*/

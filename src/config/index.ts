@@ -30,6 +30,11 @@ export default {
     email: process.env.EMAIL,
     app_pass: process.env.EMAIL_PASSWORD,
     contact_mail_address: process.env.CONTACT_MAIL_ADDRESS,
-  
-}
+  },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    priceId: process.env.STRIPE_PRICE_ID, 
+  }
 }
