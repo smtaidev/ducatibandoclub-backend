@@ -21,34 +21,51 @@ const createStrategy = async (userId: string, payload: {
     throw new ApiError(400, 'Preferred Timeframe cannot be empty');
   }
 
-  // Start transaction to ensure data consistency
-  const result = await prisma.$transaction(async (transactionClient) => {
-    // Check if user exists
-    const user = await transactionClient.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) {
-      throw new ApiError(404, 'User not found');
-    }
+  // Check if user exists outside transaction for better performance
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
 
-    // Find existing UserStrategy by userId or create a new one
+  // Pre-create or find related records outside transaction
+  const [investmentFocusRecord, riskToleranceRecord, preferredTimeframeRecord] = await Promise.all([
+    prisma.investmentFocus.upsert({
+      where: { name: investmentFocus },
+      update: {},
+      create: { name: investmentFocus },
+    }),
+    prisma.riskTolerance.upsert({
+      where: { name: riskTolerance },
+      update: {},
+      create: { name: riskTolerance },
+    }),
+    prisma.preferredTimeframe.upsert({
+      where: { name: preferredTimeframe },
+      update: {},
+      create: { name: preferredTimeframe },
+    }),
+  ]);
+
+  // Start optimized transaction
+  const result = await prisma.$transaction(async (transactionClient) => {
+    // Find existing UserStrategy or create new one
     let userStrategy = await transactionClient.userStrategy.findFirst({
       where: { userId },
     });
 
     if (userStrategy) {
-      // Clear existing relationships for single selection
-      await Promise.all([
-        transactionClient.userStrategyInvestmentFocus.deleteMany({
-          where: { userStrategyId: userStrategy.id },
-        }),
-        transactionClient.userStrategyRiskTolerance.deleteMany({
-          where: { userStrategyId: userStrategy.id },
-        }),
-        transactionClient.userStrategyTimeframe.deleteMany({
-          where: { userStrategyId: userStrategy.id },
-        }),
-      ]);
+      // Use deleteMany with single query for better performance
+      await transactionClient.userStrategyInvestmentFocus.deleteMany({
+        where: { userStrategyId: userStrategy.id },
+      });
+      await transactionClient.userStrategyRiskTolerance.deleteMany({
+        where: { userStrategyId: userStrategy.id },
+      });
+      await transactionClient.userStrategyTimeframe.deleteMany({
+        where: { userStrategyId: userStrategy.id },
+      });
     } else {
       // Create new strategy
       userStrategy = await transactionClient.userStrategy.create({
@@ -56,26 +73,7 @@ const createStrategy = async (userId: string, payload: {
       });
     }
 
-    // Find or create the related records
-    const investmentFocusRecord = await transactionClient.investmentFocus.upsert({
-      where: { name: investmentFocus },
-      update: {},
-      create: { name: investmentFocus },
-    });
-
-    const riskToleranceRecord = await transactionClient.riskTolerance.upsert({
-      where: { name: riskTolerance },
-      update: {},
-      create: { name: riskTolerance },
-    });
-
-    const preferredTimeframeRecord = await transactionClient.preferredTimeframe.upsert({
-      where: { name: preferredTimeframe },
-      update: {},
-      create: { name: preferredTimeframe },
-    });
-
-    // Create single link for each category (enforcing single selection)
+    // Create relationships in a single Promise.all
     await Promise.all([
       transactionClient.userStrategyInvestmentFocus.create({
         data: {
@@ -104,6 +102,8 @@ const createStrategy = async (userId: string, payload: {
       preferredTimeframe,
       investmentFocus,
     };
+  }, {
+    timeout: 8000, // 8 seconds timeout for this specific transaction
   });
 
   return result;
